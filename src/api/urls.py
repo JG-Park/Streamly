@@ -26,6 +26,12 @@ urlpatterns = [
     # 텔레그램
     path('telegram/test/', views.TelegramTestAPIView.as_view(), name='telegram-test'),
     
+    # YouTube 영상 추출 API
+    path('video/extract/', views.VideoExtractView.as_view(), name='video-extract'),
+    path('video/download/', views.VideoDownloadView.as_view(), name='video-download'),
+    path('video/manual-downloads/', views.ManualDownloadListView.as_view(), name='manual-download-list'),
+    path('video/manual-downloads/<int:pk>/', views.ManualDownloadDetailView.as_view(), name='manual-download-detail'),
+    
     # DRF 라우터 (마지막에 위치)
     path('', include(router.urls)),
 ]

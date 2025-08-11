@@ -32,6 +32,10 @@ from .serializers import (
     DownloadSerializer, SettingsSerializer, SystemLogSerializer,
     DashboardStatsSerializer, TelegramTestSerializer
 )
+from .views_video import (
+    VideoExtractView, VideoDownloadView,
+    ManualDownloadListView, ManualDownloadDetailView
+)
 
 
 class ChannelViewSet(viewsets.ModelViewSet):

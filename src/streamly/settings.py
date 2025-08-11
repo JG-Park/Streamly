@@ -227,6 +227,10 @@ LOGGING = {
     },
 }
 
-# Create necessary directories
+# Create necessary directories (skip if read-only filesystem)
 for directory in [MEDIA_ROOT, DOWNLOAD_PATH, BASE_DIR / 'logs']:
-    Path(directory).mkdir(parents=True, exist_ok=True)
+    try:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError) as e:
+        # Skip directory creation on read-only filesystems (e.g., during migrations)
+        pass

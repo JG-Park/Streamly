@@ -73,8 +73,12 @@
                         </td>
                         <td>
                             <div>
-                                <p>{{ stream.started_at|date:"Y-m-d" }}</p>
-                                <p class="text-xs opacity-50">{{ stream.started_at|date:"H:i:s" }}</p>
+                                <p>{{ stream.started_at|date:"Y-m-d H:i:s" }}</p>
+                                {% if stream.ended_at %}
+                                <p class="text-xs opacity-50">종료: {{ stream.ended_at|date:"H:i:s" }}</p>
+                                {% elif stream.status == 'live' %}
+                                <p class="text-xs text-success">라이브 중</p>
+                                {% endif %}
                             </div>
                         </td>
                         <td>

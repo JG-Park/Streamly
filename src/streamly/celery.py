@@ -35,6 +35,10 @@ app.conf.beat_schedule = {
         'task': 'core.tasks.check_stuck_downloads',
         'schedule': 600.0,  # 10분마다 실행 (멈춘 다운로드 확인)
     },
+    'retry-failed-stream-downloads': {
+        'task': 'core.tasks.retry_failed_stream_downloads',
+        'schedule': 10.0,  # 10초마다 실행 (종료 후 재시도)
+    },
     'cleanup-old-downloads': {
         'task': 'core.tasks.cleanup_old_downloads',
         'schedule': 3600.0,  # 1시간마다 실행

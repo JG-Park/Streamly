@@ -113,6 +113,20 @@ class LiveStream(models.Model):
         default=False,
         help_text="알림 발송 여부"
     )
+    # 재시도 관련 필드
+    retry_count = models.IntegerField(
+        default=0,
+        help_text="다운로드 재시도 횟수"
+    )
+    last_retry_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="마지막 재시도 시간"
+    )
+    retry_enabled = models.BooleanField(
+        default=True,
+        help_text="재시도 활성화 여부"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

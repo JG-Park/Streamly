@@ -81,6 +81,49 @@ class Download(models.Model):
         default=0,
         help_text="재시도 횟수"
     )
+    # 영상 정보 필드 추가
+    resolution = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="해상도 (예: 1920x1080, 1080p)"
+    )
+    video_codec = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="비디오 코덱 (예: h264, vp9)"
+    )
+    audio_codec = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="오디오 코덱 (예: aac, opus)"
+    )
+    fps = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="프레임레이트"
+    )
+    # Google Drive 백업 관련
+    drive_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="Google Drive 공유 링크"
+    )
+    backup_status = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        choices=[
+            ('pending', '대기중'),
+            ('uploading', '업로드중'),
+            ('completed', '완료'),
+            ('failed', '실패'),
+        ],
+        help_text="백업 상태"
+    )
     delete_after = models.DateTimeField(
         blank=True,
         null=True,

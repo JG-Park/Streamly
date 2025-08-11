@@ -805,6 +805,232 @@ def check_stuck_downloads(self):
 
 
 @shared_task(bind=True)
+def retry_failed_stream_downloads(self):
+    """종료 후 실패한 스트림 다운로드 재시도
+    
+    종료 후 1시간 이내의 스트림을 10초 간격으로 재시도합니다.
+    비공개에서 공개로 전환된 영상을 다운로드할 수 있도록 합니다.
+    """
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        import yt_dlp
+        
+        # 1시간 이내에 종료된 스트림 중 다운로드가 실패하거나 시작되지 않은 것
+        one_hour_ago = timezone.now() - timedelta(hours=1)
+        
+        failed_streams = LiveStream.objects.filter(
+            status='ended',
+            ended_at__gte=one_hour_ago,
+            retry_enabled=True,
+            retry_count__lt=360  # 최대 360회 (1시간 / 10초)
+        ).exclude(
+            downloads__status__in=['completed', 'downloading']
+        )
+        
+        checked_count = 0
+        retry_started = 0
+        
+        for stream in failed_streams:
+            logger.info(f"재시도 확인: {stream.title} (시도 {stream.retry_count}/360)")
+            
+            # 마지막 재시도로부터 10초 경과 확인
+            if stream.last_retry_at:
+                time_since_last = timezone.now() - stream.last_retry_at
+                if time_since_last.seconds < 10:
+                    continue
+            
+            # 영상 접근 가능 여부 확인
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+            }
+            
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(stream.url, download=False)
+                    
+                    # 비공개 상태 확인
+                    is_private = info.get('availability') == 'private'
+                    is_unavailable = info.get('availability') == 'unavailable'
+                    
+                    if not is_private and not is_unavailable:
+                        # 다운로드 가능한 상태
+                        logger.info(f"다운로드 가능 상태로 전환됨: {stream.title}")
+                        
+                        # 다운로드 작업 생성
+                        from downloads.models import Download
+                        from core.services import StreamEndHandler
+                        
+                        handler = StreamEndHandler()
+                        created_count = handler.create_download_tasks(stream)
+                        
+                        if created_count > 0:
+                            # 다운로드 시작
+                            low_download = Download.objects.filter(
+                                live_stream=stream,
+                                quality__in=['worst', 'low'],
+                                status='pending'
+                            ).first()
+                            
+                            if low_download:
+                                download_video.delay(low_download.id)
+                                retry_started += 1
+                                logger.info(f"재시도 다운로드 시작: {stream.title}")
+                                
+                                # 재시도 비활성화
+                                stream.retry_enabled = False
+                                stream.save(update_fields=['retry_enabled'])
+                        
+                    else:
+                        logger.debug(f"아직 비공개/접근불가: {stream.title}")
+                        
+            except Exception as e:
+                logger.debug(f"영상 확인 실패 {stream.title}: {e}")
+            
+            # 재시도 횟수 업데이트
+            stream.retry_count += 1
+            stream.last_retry_at = timezone.now()
+            
+            # 최대 재시도 횟수 도달 시 비활성화
+            if stream.retry_count >= 360:
+                stream.retry_enabled = False
+                logger.info(f"최대 재시도 횟수 도달, 재시도 중단: {stream.title}")
+            
+            stream.save(update_fields=['retry_count', 'last_retry_at', 'retry_enabled'])
+            checked_count += 1
+        
+        if checked_count > 0:
+            SystemLog.log('INFO', 'retry_download',
+                         f"실패한 스트림 재시도: 확인 {checked_count}개, 시작 {retry_started}개")
+        
+        return {
+            'checked': checked_count,
+            'started': retry_started
+        }
+        
+    except Exception as e:
+        logger.error(f"스트림 재시도 확인 실패: {e}")
+        SystemLog.log('ERROR', 'retry_download', f"스트림 재시도 확인 실패: {e}")
+        raise
+
+
+@shared_task(bind=True)
+def download_manual_video(self, manual_download_id):
+    """수동 YouTube 영상 다운로드
+    
+    ManualDownload 모델의 영상을 다운로드합니다.
+    """
+    try:
+        from downloads.models_manual import ManualDownload
+        download = ManualDownload.objects.get(id=manual_download_id)
+        
+        if download.status != 'pending':
+            logger.warning(f"잘못된 다운로드 상태: {download.status}")
+            return {'status': 'invalid_status'}
+        
+        # 다운로드 시작
+        download.start_download()
+        
+        # 다운로드 경로 설정
+        download_dir = os.path.join(
+            settings.MEDIA_ROOT, 'manual_downloads',
+            datetime.now().strftime('%Y%m')
+        )
+        os.makedirs(download_dir, exist_ok=True)
+        
+        # 파일명 생성 (특수문자 제거)
+        import re
+        safe_title = re.sub(r'[^\w\s-]', '', download.title or 'video')
+        safe_title = re.sub(r'[-\s]+', '-', safe_title)[:100]
+        file_name = f"{download.video_id}_{safe_title}"
+        file_path = os.path.join(download_dir, file_name)
+        
+        # yt-dlp 옵션 설정
+        ydl_opts = {
+            'format': download.quality if download.quality != 'best' else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'outtmpl': f'{file_path}.%(ext)s',
+            'quiet': True,
+            'no_warnings': True,
+            'progress_hooks': [lambda d: self._update_progress(download, d)],
+            'postprocessors': [{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            }] if download.quality == 'best' else [],
+        }
+        
+        # 다운로드 실행
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(download.url, download=True)
+            
+            # 실제 파일 경로 찾기
+            actual_file = None
+            for ext in ['mp4', 'webm', 'mkv', 'avi', 'mov']:
+                test_path = f'{file_path}.{ext}'
+                if os.path.exists(test_path):
+                    actual_file = test_path
+                    break
+            
+            if not actual_file:
+                raise Exception("다운로드된 파일을 찾을 수 없습니다")
+            
+            # 파일 정보 업데이트
+            file_size = os.path.getsize(actual_file)
+            
+            # 비디오 정보 추출
+            resolution = None
+            video_codec = None
+            audio_codec = None
+            
+            if 'formats' in info and info['formats']:
+                best_format = info['formats'][-1]
+                resolution = best_format.get('resolution') or f"{best_format.get('width', '?')}x{best_format.get('height', '?')}"
+                video_codec = best_format.get('vcodec')
+                audio_codec = best_format.get('acodec')
+            
+            # 다운로드 완료
+            download.complete_download(
+                file_path=actual_file,
+                file_size=file_size,
+                resolution=resolution,
+                video_codec=video_codec,
+                audio_codec=audio_codec
+            )
+            
+            logger.info(f"수동 다운로드 완료: {download.title}")
+            SystemLog.log('INFO', 'manual_download',
+                         f"수동 다운로드 완료: {download.title}",
+                         {'download_id': download.id, 'file_size': file_size})
+            
+            return {
+                'status': 'completed',
+                'file_path': actual_file,
+                'file_size': file_size
+            }
+            
+    except ManualDownload.DoesNotExist:
+        logger.error(f"존재하지 않는 다운로드: {manual_download_id}")
+        return {'status': 'not_found'}
+    except Exception as e:
+        logger.error(f"수동 다운로드 실패: {e}")
+        if 'download' in locals():
+            download.fail_download(str(e))
+        SystemLog.log('ERROR', 'manual_download',
+                     f"수동 다운로드 실패: {str(e)}",
+                     {'download_id': manual_download_id})
+        return {'status': 'error', 'error': str(e)}
+    
+    def _update_progress(self, download, d):
+        """다운로드 진행률 업데이트"""
+        if d['status'] == 'downloading':
+            if 'total_bytes' in d and d['total_bytes'] > 0:
+                progress = int(d['downloaded_bytes'] * 100 / d['total_bytes'])
+                download.progress = min(progress, 99)
+                download.save(update_fields=['progress'])
+
+
+@shared_task(bind=True)
 def force_start_download(self, download_id):
     """강제로 다운로드 시작
     
