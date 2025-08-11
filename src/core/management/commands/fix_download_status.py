@@ -79,7 +79,7 @@ class Command(BaseCommand):
         stuck_time = timezone.now() - timezone.timedelta(minutes=30)
         stuck_downloads = Download.objects.filter(
             status='downloading',
-            download_started_at__lt=stuck_time
+            started_at__lt=stuck_time
         )
         
         for download in stuck_downloads:
@@ -98,7 +98,7 @@ class Command(BaseCommand):
         # 시작 시간이 없는 다운로드 중 상태들
         downloads_without_start = Download.objects.filter(
             status='downloading',
-            download_started_at__isnull=True
+            started_at__isnull=True
         )
         
         for download in downloads_without_start:

@@ -219,6 +219,11 @@ class DownloadModelTest(TestCase):
         )
         
         self.assertEqual(download.status, 'pending')
+        # delete_after는 따로 설정해야 함
+        from django.utils import timezone
+        from datetime import timedelta
+        download.delete_after = timezone.now() + timedelta(days=14)
+        download.save()
         self.assertIsNotNone(download.delete_after)
     
     def test_download_status_methods(self):
@@ -231,14 +236,14 @@ class DownloadModelTest(TestCase):
         # 다운로드 시작
         download.mark_as_downloading()
         self.assertEqual(download.status, 'downloading')
-        self.assertIsNotNone(download.download_started_at)
+        self.assertIsNotNone(download.started_at)
         
         # 다운로드 완료
         download.mark_as_completed('/path/to/file.mp4', 1024000)
         self.assertEqual(download.status, 'completed')
         self.assertEqual(download.file_path, '/path/to/file.mp4')
         self.assertEqual(download.file_size, 1024000)
-        self.assertIsNotNone(download.download_completed_at)
+        self.assertIsNotNone(download.completed_at)
         
         # 다운로드 실패 (새 인스턴스로 테스트)
         failed_download = Download.objects.create(

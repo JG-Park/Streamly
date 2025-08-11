@@ -31,7 +31,7 @@ class YouTubeLiveChecker:
             'no_warnings': True,
             'extract_flat': False,
             'get_info': True,
-            'socket_timeout': 10,  # 소켓 타임아웃 10초
+            'socket_timeout': 30,  # 소켓 타임아웃 30초로 증가
         }
     
     def extract_channel_id(self, url: str) -> Optional[str]:
@@ -83,28 +83,46 @@ class YouTubeLiveChecker:
         
         def fetch_channel_info():
             try:
+                # URL 정규화 - @ 핸들 형식 처리
+                if '@' in channel_url and 'youtube.com' in channel_url:
+                    # @ 핸들 형식인 경우 /videos 추가하여 채널 정보 가져오기
+                    if not channel_url.endswith('/videos'):
+                        test_url = channel_url.rstrip('/') + '/videos'
+                    else:
+                        test_url = channel_url
+                else:
+                    test_url = channel_url
+                
                 # 채널 정보만 가져오기 위한 최적화 옵션
                 quick_opts = {
                     'quiet': True,
                     'no_warnings': True,
-                    'extract_flat': True,  # 플레이리스트 정보만 가져오기
+                    'extract_flat': 'in_playlist',  # 플레이리스트 메타데이터만
                     'skip_download': True,
-                    'socket_timeout': 10,
+                    'socket_timeout': 30,
                     'http_chunk_size': 10485760,  # 10MB 청크
+                    'playlistend': 1,  # 첫 번째 비디오 정보만
                 }
                 
                 with yt_dlp.YoutubeDL(quick_opts) as ydl:
                     # 채널 URL 직접 사용 (@ 핸들도 지원)
-                    info = ydl.extract_info(channel_url, download=False)
+                    info = ydl.extract_info(test_url, download=False)
                     
                     # 채널 정보 추출
                     channel_id = info.get('channel_id') or info.get('uploader_id')
                     channel_name = info.get('channel') or info.get('uploader') or info.get('title')
                     
+                    # 플레이리스트에서 채널 정보 추출 시도
+                    if not channel_id and info.get('entries'):
+                        first_entry = info['entries'][0] if info['entries'] else None
+                        if first_entry:
+                            channel_id = first_entry.get('channel_id') or first_entry.get('uploader_id')
+                            channel_name = first_entry.get('channel') or first_entry.get('uploader')
+                    
                     if channel_id:
                         return {
                             'channel_id': channel_id,
-                            'channel_name': channel_name,
+                            'channel_name': channel_name or 'Unknown Channel',
                             'channel_url': f"https://www.youtube.com/channel/{channel_id}",
                         }
             except Exception as e:
@@ -115,7 +133,7 @@ class YouTubeLiveChecker:
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(fetch_channel_info)
             try:
-                return future.result(timeout=15)  # 15초 타임아웃
+                return future.result(timeout=30)  # 30초 타임아웃으로 증가
             except TimeoutError:
                 logger.error(f"yt-dlp 타임아웃: {channel_url}")
                 return None
@@ -145,7 +163,7 @@ class YouTubeLiveChecker:
                 'no_warnings': True,
                 'extract_flat': True,  # 플레이리스트 정보만
                 'skip_download': True,
-                'playlistend': 10,  # 최근 10개 확인
+                'playlistend': 5,  # 최근 5개만 확인 (속도 향상)
             }
             
             with yt_dlp.YoutubeDL(opts) as ydl:

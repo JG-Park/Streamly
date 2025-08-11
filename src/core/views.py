@@ -14,14 +14,25 @@ import yt_dlp
 import shutil
 
 from channels.models import Channel, LiveStream
-from downloads.models import Download
 from core.models import SystemLog, Settings
 from core.utils import format_file_size
+
+# downloads.models는 나중에 임포트 (순환 임포트 방지)
+try:
+    from downloads.models import Download
+except ImportError:
+    # 마이그레이션 중일 때는 임포트 실패 허용
+    Download = None
 
 
 @login_required
 def dashboard_index(request):
     """메인 대시보드"""
+    # downloads 모듈 동적 임포트
+    global Download
+    if Download is None:
+        from downloads.models import Download
+    
     # 통계 데이터
     stats = {
         'total_channels': Channel.objects.count(),
@@ -149,6 +160,11 @@ def streams_page(request):
 @login_required
 def downloads_page(request):
     """다운로드 관리 페이지"""
+    # downloads 모듈 동적 임포트
+    global Download
+    if Download is None:
+        from downloads.models import Download
+    
     downloads = Download.objects.select_related('live_stream__channel')
     downloads = downloads.order_by('-created_at')
     
@@ -178,13 +194,17 @@ def downloads_page(request):
     )['total'] or 0
     stats['total_size'] = format_file_size(total_size)
     
-    # 파일 크기 표시 추가
+    # 파일 크기 표시를 위한 리스트 생성
+    downloads_with_size = []
     for download in page_obj.object_list:
-        if download.file_size:
-            download.file_size_display = format_file_size(download.file_size)
+        download_data = {
+            'download': download,
+            'file_size_display': format_file_size(download.file_size) if download.file_size else '-'
+        }
+        downloads_with_size.append(download_data)
     
     context = {
-        'downloads': page_obj.object_list,
+        'downloads': downloads_with_size,
         'page_obj': page_obj,
         'stats': stats,
         'downloading_count': stats['downloading'],
@@ -273,6 +293,11 @@ def logs_page(request):
 def dashboard_activities_ajax(request):
     """대시보드 실시간 활동 데이터 조회"""
     try:
+        # downloads 모듈 동적 임포트
+        global Download
+        if Download is None:
+            from downloads.models import Download
+        
         # 최근 24시간 활동
         since = timezone.now() - timedelta(hours=24)
         
@@ -362,6 +387,11 @@ def dashboard_activities_ajax(request):
 def dashboard_stats_ajax(request):
     """대시보드 실시간 통계 데이터 조회"""
     try:
+        # downloads 모듈 동적 임포트
+        global Download
+        if Download is None:
+            from downloads.models import Download
+        
         # 기본 통계
         stats = {
             'total_channels': Channel.objects.count(),
@@ -408,6 +438,11 @@ def dashboard_stats_ajax(request):
 def dashboard_live_streams_ajax(request):
     """현재 라이브 중인 스트림 목록 조회"""
     try:
+        # downloads 모듈 동적 임포트
+        global Download
+        if Download is None:
+            from downloads.models import Download
+        
         live_streams = LiveStream.objects.filter(
             status='live'
         ).select_related('channel').order_by('-started_at')
@@ -450,6 +485,11 @@ def start_download_ajax(request, stream_id):
         return JsonResponse({'success': False, 'message': '잘못된 요청입니다.'}, status=405)
     
     try:
+        # downloads 모듈 동적 임포트
+        global Download
+        if Download is None:
+            from downloads.models import Download
+        
         stream = LiveStream.objects.get(id=stream_id)
         
         # 이미 다운로드가 있는지 확인

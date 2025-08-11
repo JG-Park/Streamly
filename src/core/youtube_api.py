@@ -23,18 +23,20 @@ class YouTubeAPIService:
     """YouTube Data API v3 서비스"""
     
     def __init__(self):
-        self.api_key = getattr(settings, 'YOUTUBE_API_KEY', '')
+        # YouTube API 비활성화 - yt-dlp만 사용
+        self.api_key = None  # getattr(settings, 'YOUTUBE_API_KEY', '')
         self.service = None
         
-        if YOUTUBE_API_AVAILABLE and self.api_key:
-            try:
-                self.service = build('youtube', 'v3', developerKey=self.api_key)
-                logger.info("YouTube API 서비스 초기화 완료")
-            except Exception as e:
-                logger.error(f"YouTube API 서비스 초기화 실패: {e}")
-        else:
-            if not self.api_key:
-                logger.info("YouTube API 키가 설정되지 않음 - yt-dlp만 사용")
+        # API 사용 비활성화
+        logger.info("YouTube API 비활성화 - yt-dlp만 사용")
+        
+        # 향후 API 재활성화가 필요한 경우 아래 코드 주석 해제
+        # if YOUTUBE_API_AVAILABLE and self.api_key:
+        #     try:
+        #         self.service = build('youtube', 'v3', developerKey=self.api_key)
+        #         logger.info("YouTube API 서비스 초기화 완료")
+        #     except Exception as e:
+        #         logger.error(f"YouTube API 서비스 초기화 실패: {e}")
     
     def is_available(self) -> bool:
         """YouTube API 사용 가능 여부 확인"""

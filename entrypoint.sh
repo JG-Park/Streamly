@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Django 설정 모듈 명시적 설정
+export DJANGO_SETTINGS_MODULE=streamly.settings
+export PYTHONPATH=/app/src:$PYTHONPATH
+
+# 작업 디렉토리 변경
+cd /app/src
+
 echo "Waiting for database..."
 until nc -z db 5432; do
   echo "Database is unavailable - sleeping"

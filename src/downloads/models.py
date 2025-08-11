@@ -81,6 +81,11 @@ class Download(models.Model):
         default=0,
         help_text="재시도 횟수"
     )
+    delete_after = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="자동 삭제 예정 시간"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -116,6 +121,19 @@ class Download(models.Model):
         if self.started_at and self.completed_at:
             return self.completed_at - self.started_at
         return None
+    
+    @property
+    def download_duration(self):
+        """다운로드 소요 시간 (별칭)"""
+        return self.duration
+    
+    @property
+    def file_exists(self):
+        """파일 존재 여부"""
+        if self.file_path:
+            import os
+            return os.path.exists(self.file_path)
+        return False
     
     def start_download(self):
         """다운로드 시작"""
@@ -154,3 +172,33 @@ class Download(models.Model):
         if eta:
             self.eta = eta
         self.save(update_fields=['progress', 'download_speed', 'eta'])
+    
+    def delete_file(self):
+        """다운로드 파일 삭제"""
+        if self.file_path and self.file_exists:
+            import os
+            try:
+                os.remove(self.file_path)
+                # 관련 파일들도 삭제 (썸네일, 정보 파일 등)
+                base_path = os.path.splitext(self.file_path)[0]
+                for ext in ['.info.json', '.description', '.jpg', '.png', '.webp']:
+                    related_file = base_path + ext
+                    if os.path.exists(related_file):
+                        os.remove(related_file)
+                return True
+            except OSError:
+                return False
+        return False
+    
+    # tasks.py에서 사용하는 메서드 별칭
+    def mark_as_downloading(self):
+        """다운로드 시작 (별칭)"""
+        return self.start_download()
+    
+    def mark_as_completed(self, file_path=None, file_size=None):
+        """다운로드 완료 (별칭)"""
+        return self.complete_download(file_path, file_size)
+    
+    def mark_as_failed(self, error_message=None):
+        """다운로드 실패 (별칭)"""
+        return self.fail_download(error_message)

@@ -208,8 +208,8 @@ async function confirmDownload() {
     }
     
     try {
-        // 다운로드 요청 (API 구현 필요)
-        const response = await app.apiRequest('POST', `/streams/${downloadStreamId}/download/`, {
+        // 다운로드 작업 생성 요청
+        const response = await app.apiRequest('POST', `/streams/${downloadStreamId}/create_download_tasks/`, {
             high_quality: downloadHigh,
             low_quality: downloadLow
         });

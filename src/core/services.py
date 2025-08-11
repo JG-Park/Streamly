@@ -9,8 +9,14 @@ from django.db import transaction
 from typing import List, Optional, Dict, Any
 
 from channels.models import Channel, LiveStream
-from downloads.models import Download
 from core.models import SystemLog
+
+# downloads.models는 나중에 임포트 (순환 임포트 방지)
+try:
+    from downloads.models import Download
+except ImportError:
+    # 마이그레이션 중일 때는 임포트 실패 허용
+    Download = None
 from core.utils import YouTubeLiveChecker
 from core.duplicate_detection import duplicate_detection_service
 from core.youtube_monitor import efficient_monitor, hybrid_service
@@ -230,19 +236,22 @@ class StreamEndHandler:
     
     def create_download_tasks(self, live_stream: LiveStream) -> int:
         """다운로드 작업 생성 (중복 감지 강화)"""
+        # Download 모델 확인
+        from downloads.models import Download as DownloadModel
+        
         try:
             with transaction.atomic():
                 created_count = 0
                 
                 # 저화질 다운로드
                 low_duplicate_check = duplicate_detection_service.check_download_duplicate(
-                    live_stream.video_id, 'low'
+                    live_stream.video_id, 'worst'
                 )
                 
                 if not low_duplicate_check['is_duplicate']:
-                    low_download, created = Download.objects.get_or_create(
+                    low_download, created = DownloadModel.objects.get_or_create(
                         live_stream=live_stream,
-                        quality='low',
+                        quality='worst',
                         defaults={'status': 'pending'}
                     )
                     if created:
@@ -252,13 +261,13 @@ class StreamEndHandler:
                 
                 # 고화질 다운로드
                 high_duplicate_check = duplicate_detection_service.check_download_duplicate(
-                    live_stream.video_id, 'high'
+                    live_stream.video_id, 'best'
                 )
                 
                 if not high_duplicate_check['is_duplicate']:
-                    high_download, created = Download.objects.get_or_create(
+                    high_download, created = DownloadModel.objects.get_or_create(
                         live_stream=live_stream,
-                        quality='high',
+                        quality='best',
                         defaults={'status': 'pending'}
                     )
                     if created:

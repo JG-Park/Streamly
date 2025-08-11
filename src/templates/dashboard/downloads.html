@@ -64,83 +64,79 @@
                     </tr>
                 </thead>
                 <tbody id="downloadTableBody">
-                    {% for download in downloads %}
-                    <tr data-status="{{ download.status }}" data-quality="{{ download.quality }}">
+                    {% for item in downloads %}
+                    <tr data-status="{{ item.download.status }}" data-quality="{{ item.download.quality }}">
                         <td>
-                            <span class="badge badge-{% if download.status == 'completed' %}success{% elif download.status == 'downloading' %}info{% elif download.status == 'pending' %}warning{% else %}error{% endif %}">
-                                {% if download.status == 'downloading' %}
+                            <span class="badge badge-{% if item.download.status == 'completed' %}success{% elif item.download.status == 'downloading' %}info{% elif item.download.status == 'pending' %}warning{% else %}error{% endif %}">
+                                {% if item.download.status == 'downloading' %}
                                     <span class="loading loading-spinner loading-xs mr-1"></span>
                                 {% endif %}
-                                {{ download.get_status_display }}
+                                {{ item.download.get_status_display }}
                             </span>
-                            {% if download.progress %}
+                            {% if item.download.progress %}
                             <div class="mt-1">
-                                <progress class="progress progress-primary w-20" value="{{ download.progress }}" max="100"></progress>
-                                <span class="text-xs">{{ download.progress }}%</span>
+                                <progress class="progress progress-primary w-20" value="{{ item.download.progress }}" max="100"></progress>
+                                <span class="text-xs">{{ item.download.progress }}%</span>
                             </div>
                             {% endif %}
                         </td>
                         <td>
                             <div>
-                                <div class="font-bold">{{ download.live_stream.channel.name }}</div>
-                                <div class="text-xs opacity-50">{{ download.live_stream.channel.channel_id }}</div>
+                                <div class="font-bold">{{ item.download.live_stream.channel.name }}</div>
+                                <div class="text-xs opacity-50">{{ item.download.live_stream.channel.channel_id }}</div>
                             </div>
                         </td>
                         <td>
                             <div class="max-w-md">
-                                <p class="truncate font-medium">{{ download.live_stream.title }}</p>
-                                <p class="text-xs opacity-50">{{ download.live_stream.video_id }}</p>
+                                <p class="truncate font-medium">{{ item.download.live_stream.title }}</p>
+                                <p class="text-xs opacity-50">{{ item.download.live_stream.video_id }}</p>
                             </div>
                         </td>
                         <td>
-                            <span class="badge badge-{% if download.quality == 'best' %}primary{% else %}secondary{% endif %}">
-                                {{ download.get_quality_display }}
+                            <span class="badge badge-{% if item.download.quality == 'best' %}primary{% else %}secondary{% endif %}">
+                                {{ item.download.get_quality_display }}
                             </span>
                         </td>
                         <td>
-                            {% if download.file_size %}
-                                {{ download.file_size_display }}
-                            {% else %}
-                                -
-                            {% endif %}
+                            {{ item.file_size_display }}
                         </td>
                         <td>
-                            {% if download.completed_at %}
+                            {% if item.download.completed_at %}
                                 <div>
-                                    <p>{{ download.completed_at|date:"Y-m-d" }}</p>
-                                    <p class="text-xs opacity-50">{{ download.completed_at|date:"H:i:s" }}</p>
+                                    <p>{{ item.download.completed_at|date:"Y-m-d" }}</p>
+                                    <p class="text-xs opacity-50">{{ item.download.completed_at|date:"H:i:s" }}</p>
                                 </div>
                             {% else %}
-                                <p class="text-xs opacity-50">{{ download.created_at|timesince }} 전</p>
+                                <p class="text-xs opacity-50">{{ item.download.created_at|timesince }} 전</p>
                             {% endif %}
                         </td>
                         <td>
                             <div class="flex gap-1">
-                                {% if download.status == 'completed' %}
-                                <button onclick="playVideo({{ download.id }})" class="btn btn-xs btn-ghost">
+                                {% if item.download.status == 'completed' %}
+                                <button onclick="playVideo({{ item.download.id }})" class="btn btn-xs btn-ghost">
                                     <i class="fas fa-play"></i>
                                 </button>
-                                <button onclick="deleteDownload({{ download.id }})" class="btn btn-xs btn-error">
+                                <button onclick="deleteDownload({{ item.download.id }})" class="btn btn-xs btn-error">
                                     <i class="fas fa-trash"></i>
                                 </button>
-                                {% elif download.status == 'failed' %}
-                                <button onclick="retryDownload({{ download.id }})" class="btn btn-xs btn-warning">
+                                {% elif item.download.status == 'failed' %}
+                                <button onclick="retryDownload({{ item.download.id }})" class="btn btn-xs btn-warning">
                                     <i class="fas fa-redo"></i>
                                 </button>
-                                <button onclick="forceDownload({{ download.id }})" class="btn btn-xs btn-info" title="강제 다운로드">
+                                <button onclick="forceDownload({{ item.download.id }})" class="btn btn-xs btn-info" title="강제 다운로드">
                                     <i class="fas fa-bolt"></i>
                                 </button>
-                                {% if download.error_message %}
-                                <button onclick="showError({{ download.id }})" class="btn btn-xs btn-ghost">
+                                {% if item.download.error_message %}
+                                <button onclick="showError({{ item.download.id }})" class="btn btn-xs btn-ghost">
                                     <i class="fas fa-info-circle"></i>
                                 </button>
                                 {% endif %}
-                                {% elif download.status == 'downloading' %}
-                                <button onclick="cancelDownload({{ download.id }})" class="btn btn-xs btn-error">
+                                {% elif item.download.status == 'downloading' %}
+                                <button onclick="cancelDownload({{ item.download.id }})" class="btn btn-xs btn-error">
                                     <i class="fas fa-stop"></i>
                                 </button>
-                                {% elif download.status == 'pending' %}
-                                <button onclick="forceDownload({{ download.id }})" class="btn btn-xs btn-primary" title="강제 다운로드">
+                                {% elif item.download.status == 'pending' %}
+                                <button onclick="forceDownload({{ item.download.id }})" class="btn btn-xs btn-primary" title="강제 다운로드">
                                     <i class="fas fa-play-circle"></i> 시작
                                 </button>
                                 {% endif %}

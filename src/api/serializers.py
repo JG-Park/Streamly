@@ -4,8 +4,14 @@ API 시리얼라이저들
 
 from rest_framework import serializers
 from channels.models import Channel, LiveStream
-from downloads.models import Download
 from core.models import Settings, SystemLog
+
+# downloads.models는 나중에 임포트 (순환 임포트 방지)
+try:
+    from downloads.models import Download
+except ImportError:
+    # 마이그레이션 중일 때는 임포트 실패 허용
+    Download = None
 
 
 class ChannelSerializer(serializers.ModelSerializer):
@@ -90,19 +96,27 @@ class DownloadSerializer(serializers.ModelSerializer):
     download_duration_formatted = serializers.SerializerMethodField()
     
     class Meta:
-        model = Download
+        @property
+        def model(self):
+            if Download is None:
+                from downloads.models import Download
+            return Download
+        
+        model = Download if Download is not None else None
         fields = [
             'id', 'quality', 'status', 'file_path', 'file_size',
-            'download_started_at', 'download_completed_at', 'delete_after',
+            'started_at', 'completed_at', 'delete_after',
             'error_message', 'created_at', 'updated_at',
             'live_stream_title', 'channel_name', 'file_size_formatted',
-            'file_exists', 'download_duration_formatted'
+            'file_exists', 'download_duration_formatted', 'progress',
+            'download_speed', 'eta', 'retry_count'
         ]
         read_only_fields = [
-            'id', 'file_path', 'file_size', 'download_started_at',
-            'download_completed_at', 'error_message', 'created_at', 'updated_at',
+            'id', 'file_path', 'file_size', 'started_at',
+            'completed_at', 'error_message', 'created_at', 'updated_at',
             'live_stream_title', 'channel_name', 'file_size_formatted',
-            'file_exists', 'download_duration_formatted'
+            'file_exists', 'download_duration_formatted', 'progress',
+            'download_speed', 'eta', 'retry_count'
         ]
     
     def get_file_size_formatted(self, obj):

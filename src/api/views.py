@@ -12,8 +12,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from channels.models import Channel, LiveStream
-from downloads.models import Download
 from core.models import Settings, SystemLog
+
+# downloads.models는 나중에 임포트 (순환 임포트 방지)
+try:
+    from downloads.models import Download
+except ImportError:
+    # 마이그레이션 중일 때는 임포트 실패 허용
+    Download = None
 from core.services import ChannelManagementService
 from core.telegram_service import TelegramService
 from core.utils import format_file_size
@@ -264,12 +270,16 @@ class LiveStreamViewSet(viewsets.ReadOnlyModelViewSet):
             live_stream.status = 'downloading'
             live_stream.save(update_fields=['status'])
             
-            # 저화질 다운로드부터 시작
-            low_download = Download.objects.filter(
-                live_stream=live_stream, 
-                quality='low', 
-                status='pending'
-            ).first()
+            # Download 모델이 사용 가능한 경우에만 다운로드 시작
+            if Download is not None:
+                # 저화질 다운로드부터 시작
+                low_download = Download.objects.filter(
+                    live_stream=live_stream, 
+                    quality='worst',  # 'low' -> 'worst'로 수정
+                    status='pending'
+                ).first()
+            else:
+                low_download = None
             
             if low_download:
                 from core.tasks import download_video
@@ -312,10 +322,15 @@ class LiveStreamViewSet(viewsets.ReadOnlyModelViewSet):
 
 class DownloadViewSet(viewsets.ReadOnlyModelViewSet):
     """다운로드 API ViewSet"""
-    queryset = Download.objects.select_related('live_stream__channel').all()
     serializer_class = DownloadSerializer
     permission_classes = [permissions.IsAuthenticated]
     ordering = ['-created_at']
+    
+    @property
+    def queryset(self):
+        """Download 모델 동적 임포트"""
+        from downloads.models import Download
+        return Download.objects.select_related('live_stream__channel').all()
     
     @action(detail=False, methods=['get'])
     def pending(self, request):
@@ -328,7 +343,8 @@ class DownloadViewSet(viewsets.ReadOnlyModelViewSet):
         })
     
     def get_queryset(self):
-        queryset = super().get_queryset()
+        from downloads.models import Download
+        queryset = Download.objects.select_related('live_stream__channel').all()
         
         # 필터링
         status_filter = self.request.query_params.get('status')
@@ -493,8 +509,8 @@ class DownloadViewSet(viewsets.ReadOnlyModelViewSet):
         old_status = download.status
         download.status = 'pending'
         download.error_message = None
-        download.download_started_at = None
-        download.save(update_fields=['status', 'error_message', 'download_started_at'])
+        download.started_at = None
+        download.save(update_fields=['status', 'error_message', 'started_at'])
         
         SystemLog.log('INFO', 'download', 
                      f"다운로드 상태 초기화: {download.live_stream.title}",

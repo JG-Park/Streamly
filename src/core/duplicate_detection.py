@@ -12,8 +12,14 @@ from django.utils import timezone
 from django.core.cache import cache
 
 from channels.models import Channel, LiveStream
-from downloads.models import Download
 from core.models import SystemLog
+
+# downloads.models는 나중에 임포트 (순환 임포트 방지)
+try:
+    from downloads.models import Download
+except ImportError:
+    # 마이그레이션 중일 때는 임포트 실패 허용
+    Download = None
 
 logger = logging.getLogger('streamly')
 
@@ -305,6 +311,9 @@ class DuplicateDetectionService:
     
     def check_download_duplicate(self, video_id: str, quality: str) -> Dict[str, Any]:
         """다운로드 중복 여부 확인"""
+        # Download 모델 직접 임포트
+        from downloads.models import Download
+        
         result = {
             'is_duplicate': False,
             'existing_download': None,
