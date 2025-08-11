@@ -31,6 +31,10 @@ app.conf.beat_schedule = {
         'task': 'core.tasks.process_pending_downloads',
         'schedule': 300.0,  # 5분마다 실행 (대기 중 다운로드 처리)
     },
+    'check-stuck-downloads': {
+        'task': 'core.tasks.check_stuck_downloads',
+        'schedule': 600.0,  # 10분마다 실행 (멈춘 다운로드 확인)
+    },
     'cleanup-old-downloads': {
         'task': 'core.tasks.cleanup_old_downloads',
         'schedule': 3600.0,  # 1시간마다 실행

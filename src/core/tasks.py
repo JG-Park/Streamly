@@ -715,6 +715,96 @@ def process_pending_downloads(self):
 
 
 @shared_task(bind=True)
+def check_stuck_downloads(self):
+    """멈춰있는 다운로드 상태 확인 및 수정
+    
+    다운로드 중으로 표시되어 있지만 실제로는 완료된 다운로드를 찾아서 수정합니다.
+    10분 이상 업데이트가 없는 다운로드를 확인합니다.
+    """
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        import os
+        import glob
+        
+        # 10분 이상 업데이트가 없는 다운로드 중인 항목 찾기
+        stuck_time = timezone.now() - timedelta(minutes=10)
+        stuck_downloads = Download.objects.filter(
+            status='downloading',
+            updated_at__lt=stuck_time
+        ).select_related('live_stream__channel')
+        
+        fixed_count = 0
+        failed_count = 0
+        
+        for download in stuck_downloads:
+            logger.info(f"멈춘 다운로드 확인: {download.live_stream.title} ({download.quality})")
+            
+            # 예상 파일 경로 생성
+            channel_name = download.live_stream.channel.name
+            quality_dir = 'best' if download.quality in ['best', 'high'] else 'worst'
+            download_path = f"/app/downloads/{quality_dir}/{channel_name}"
+            
+            # 파일명 패턴 생성
+            safe_title = sanitize_filename(download.live_stream.title)
+            timestamp = download.live_stream.started_at.strftime("%Y%m%d_%H%M%S")
+            file_pattern = f"{timestamp}_{safe_title}"
+            
+            # 파일 찾기
+            found_file = None
+            if os.path.exists(download_path):
+                # 다양한 확장자로 시도
+                for ext in ['mp4', 'webm', 'mkv', 'flv', 'm4v', 'avi', 'mov']:
+                    potential_file = os.path.join(download_path, f"{file_pattern}.{ext}")
+                    if os.path.exists(potential_file):
+                        found_file = potential_file
+                        break
+                
+                # glob 패턴으로도 시도
+                if not found_file:
+                    pattern = os.path.join(download_path, f"{file_pattern}.*")
+                    files = glob.glob(pattern)
+                    for f in files:
+                        # 메타데이터 파일 제외
+                        if not f.endswith(('.json', '.description', '.jpg', '.png', '.webp', '.part', '.ytdl')):
+                            found_file = f
+                            break
+            
+            if found_file:
+                # 파일이 존재하면 완료 처리
+                file_size = os.path.getsize(found_file)
+                download.mark_as_completed(found_file, file_size)
+                fixed_count += 1
+                logger.info(f"다운로드 상태 수정 완료: {download.live_stream.title} - {found_file}")
+                SystemLog.log('INFO', 'download_fix', 
+                             f"멈춘 다운로드 상태 수정: {download.live_stream.title}",
+                             {'file_path': found_file, 'file_size': file_size})
+            else:
+                # 파일이 없고 너무 오래되었으면 실패 처리
+                if download.updated_at < timezone.now() - timedelta(hours=1):
+                    download.mark_as_failed("다운로드가 중단됨 (파일 없음)")
+                    failed_count += 1
+                    logger.warning(f"다운로드 실패 처리: {download.live_stream.title}")
+                else:
+                    logger.info(f"다운로드 진행 중으로 유지: {download.live_stream.title}")
+        
+        if fixed_count > 0 or failed_count > 0:
+            SystemLog.log('INFO', 'download_fix', 
+                         f"멈춘 다운로드 확인 완료: 수정 {fixed_count}개, 실패 {failed_count}개")
+        
+        return {
+            'checked': stuck_downloads.count(),
+            'fixed': fixed_count,
+            'failed': failed_count
+        }
+        
+    except Exception as e:
+        logger.error(f"멈춘 다운로드 확인 실패: {e}")
+        SystemLog.log('ERROR', 'download_fix', f"멈춘 다운로드 확인 실패: {e}")
+        raise
+
+
+@shared_task(bind=True)
 def force_start_download(self, download_id):
     """강제로 다운로드 시작
     
