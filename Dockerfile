@@ -4,6 +4,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONPATH=/app/src:$PYTHONPATH
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -20,6 +21,9 @@ WORKDIR /app
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Update yt-dlp to latest version
+RUN pip install --no-cache-dir --upgrade yt-dlp
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /app/entrypoint.sh
@@ -38,4 +42,4 @@ EXPOSE 8000
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Default command - 8000 포트로 내부 실행
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "300", "--worker-class", "sync", "--max-requests", "1000", "streamly.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "300", "--worker-class", "sync", "--max-requests", "1000", "--chdir", "/app/src", "streamly.wsgi:application"]
