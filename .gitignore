@@ -37,8 +37,8 @@ static_collected/
 *~
 .DS_Store
 
-# Downloads
-downloads/
+# Downloads files (not the app)
+downloads_files/
 *.mp4
 *.webm
 *.mkv

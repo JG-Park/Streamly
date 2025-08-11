@@ -34,7 +34,7 @@ services:
     # ports:
     #   - "8000:8000"
     volumes:
-      - ./downloads:/app/downloads
+      - ./downloads_files:/app/downloads
       - ./media:/app/media
       - ./logs:/app/logs
     environment:
@@ -65,7 +65,7 @@ services:
     build: .
     command: celery -A streamly worker --loglevel=info --concurrency=4
     volumes:
-      - ./downloads:/app/downloads
+      - ./downloads_files:/app/downloads
       - ./media:/app/media
       - ./logs:/app/logs
     environment:
@@ -94,7 +94,7 @@ services:
     build: .
     command: celery -A streamly beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
-      - ./downloads:/app/downloads
+      - ./downloads_files:/app/downloads
       - ./media:/app/media
       - ./logs:/app/logs
     environment:
