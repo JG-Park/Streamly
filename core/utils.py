@@ -121,25 +121,15 @@ class YouTubeLiveChecker:
                 return None
     
     def check_live_streams(self, channel_id: str) -> list:
-        """채널의 라이브 스트림 확인 (yt-dlp 우선, API는 백업)"""
-        # yt-dlp를 기본으로 사용
+        """채널의 라이브 스트림 확인 (yt-dlp만 사용, API 사용 안함)"""
+        # yt-dlp만 사용 (API 할당량 절약)
         try:
             logger.info(f"yt-dlp로 라이브 스트림 확인 중: {channel_id}")
             result = self._check_live_streams_ydlp(channel_id)
-            if result:
-                return result
+            return result if result else []
         except Exception as e:
-            logger.warning(f"yt-dlp 실패, API로 폴백: {e}")
-        
-        # yt-dlp 실패 시 API 사용 (백업)
-        if YOUTUBE_API_AVAILABLE and youtube_api_service.is_available():
-            try:
-                logger.info(f"YouTube API로 라이브 스트림 확인 중: {channel_id}")
-                return youtube_api_service.get_live_streams(channel_id)
-            except Exception as e:
-                logger.error(f"YouTube API도 실패: {e}")
-        
-        return []
+            logger.error(f"yt-dlp 라이브 스트림 확인 실패: {e}")
+            return []
     
     def _check_live_streams_ydlp(self, channel_id: str) -> list:
         """yt-dlp로 라이브 스트림 확인 (개선된 방법)"""

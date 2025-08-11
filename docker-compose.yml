@@ -125,7 +125,7 @@ services:
       - "40732:40732"  # nginx가 40732 포트로 외부 접속 받음
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./static_collected:/app/static:ro
+      - ./static_collected:/app/static_collected:ro
     depends_on:
       - web
     networks:
