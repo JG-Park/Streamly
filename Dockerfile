@@ -31,11 +31,11 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p /app/downloads /app/media /app/logs /app/static_collected
 
-# Expose port
-EXPOSE 40732
+# Expose port (내부 통신용)
+EXPOSE 8000
 
 # Set entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# Default command
-CMD ["gunicorn", "--bind", "0.0.0.0:40732", "--workers", "3", "--timeout", "300", "--worker-class", "sync", "--max-requests", "1000", "streamly.wsgi:application"]
+# Default command - 8000 포트로 내부 실행
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "300", "--worker-class", "sync", "--max-requests", "1000", "streamly.wsgi:application"]

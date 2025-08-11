@@ -14,10 +14,10 @@ if ! command -v nginx &> /dev/null; then
 fi
 
 # Django 서버 실행 확인
-if ! curl -s http://localhost:40732/health > /dev/null 2>&1; then
-    echo "⚠️  Django 서버가 40732 포트에서 실행되고 있지 않습니다."
+if ! curl -s http://localhost:8000/health > /dev/null 2>&1; then
+    echo "⚠️  Django 서버가 8000 포트에서 실행되고 있지 않습니다."
     echo "   먼저 Django 서버를 시작하세요:"
-    echo "   python3 manage.py runserver 0.0.0.0:40732"
+    echo "   python3 manage.py runserver 0.0.0.0:8000"
     exit 1
 fi
 
@@ -53,11 +53,11 @@ if [ $? -eq 0 ]; then
     echo "✅ Nginx가 성공적으로 시작되었습니다!"
     echo ""
     echo "접속 URL:"
-    echo "  - http://localhost (80번 포트)"
-    echo "  - http://127.0.0.1 (80번 포트)"
+    echo "  - http://localhost:40732 (nginx가 40732 포트로 수신)"
+    echo "  - http://127.0.0.1:40732"
     echo ""
     echo "프록시 대상:"
-    echo "  - Django: http://localhost:40732"
+    echo "  - Django: http://localhost:8000 (내부 통신)"
     echo ""
     echo "로그 위치:"
     echo "  - Access: $LOG_DIR/streamly-access.log"
@@ -70,7 +70,7 @@ if [ $? -eq 0 ]; then
     # 연결 테스트
     echo "연결 테스트 중..."
     sleep 2
-    if curl -s http://localhost/health > /dev/null 2>&1; then
+    if curl -s http://localhost:40732/health > /dev/null 2>&1; then
         echo "✅ 프록시 연결 성공!"
     else
         echo "⚠️  프록시 연결 실패. 로그를 확인하세요."
