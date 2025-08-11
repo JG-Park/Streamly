@@ -209,13 +209,11 @@
 </dialog>
 
 <script>
-let deleteDownloadId = null;
-const errorMessages = {};
-
-// 에러 메시지 저장
+// 에러 메시지를 전역 변수로 저장
+window.errorMessages = {};
 {% for download in downloads %}
     {% if download.error_message %}
-    errorMessages[{{ download.id }}] = {{ download.error_message|escapejs|safe }};
+    window.errorMessages[{{ download.id }}] = "{{ download.error_message|escapejs }}";
     {% endif %}
 {% endfor %}
 
@@ -240,82 +238,7 @@ function filterDownloads() {
     });
 }
 
-// 다운로드 재시도
-async function retryDownload(downloadId) {
-    try {
-        const response = await app.apiRequest('POST', `/downloads/${downloadId}/retry_download/`);
-        showToast('success', '다운로드를 재시도합니다.');
-        setTimeout(() => location.reload(), 2000);
-    } catch (error) {
-        showToast('error', '재시도 실패');
-    }
-}
-
-// 강제 다운로드
-async function forceDownload(downloadId) {
-    if (!confirm('강제로 다운로드를 시작하시겠습니까?')) return;
-    
-    try {
-        showToast('info', '강제 다운로드 시작 중...');
-        const response = await app.apiRequest('POST', `/downloads/${downloadId}/force_download/`);
-        showToast('success', '강제 다운로드가 시작되었습니다.');
-        setTimeout(() => location.reload(), 2000);
-    } catch (error) {
-        showToast('error', '강제 다운로드 실패');
-    }
-}
-
-// 다운로드 취소
-async function cancelDownload(downloadId) {
-    if (!confirm('다운로드를 취소하시겠습니까?')) return;
-    
-    try {
-        const response = await app.apiRequest('POST', `/downloads/${downloadId}/cancel/`);
-        showToast('success', '다운로드가 취소되었습니다.');
-        setTimeout(() => location.reload(), 1000);
-    } catch (error) {
-        showToast('error', '취소 실패');
-    }
-}
-
-// 다운로드 삭제
-function deleteDownload(downloadId) {
-    deleteDownloadId = downloadId;
-    document.getElementById('deleteModal').showModal();
-}
-
-function closeDeleteModal() {
-    document.getElementById('deleteModal').close();
-    deleteDownloadId = null;
-}
-
-async function confirmDelete() {
-    if (!deleteDownloadId) return;
-    
-    try {
-        const response = await app.apiRequest('DELETE', `/downloads/${deleteDownloadId}/delete_file/`);
-        showToast('success', '다운로드가 삭제되었습니다.');
-        closeDeleteModal();
-        setTimeout(() => location.reload(), 1000);
-    } catch (error) {
-        showToast('error', '삭제 실패');
-    }
-}
-
-// 에러 메시지 표시
-function showError(downloadId) {
-    const errorMessage = errorMessages[downloadId];
-    if (errorMessage) {
-        document.getElementById('errorMessage').textContent = errorMessage;
-        document.getElementById('errorModal').showModal();
-    }
-}
-
-// 비디오 재생 (외부 플레이어 또는 다운로드)
-function playVideo(downloadId) {
-    // 실제 구현에서는 파일 경로를 반환하는 API 필요
-    window.open(`/api/v1/downloads/${downloadId}/file/`, '_blank');
-}
+// 모든 다운로드 관련 함수들은 app.js에 정의되어 있음
 
 // 5초마다 새로고침 (다운로드 중인 항목이 있을 때)
 {% if downloading_count > 0 %}

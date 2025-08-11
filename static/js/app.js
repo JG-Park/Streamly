@@ -183,3 +183,77 @@ function showToast(type, message) {
         window.app.showToast(type, message);
     }
 }
+
+// 다운로드 페이지 전역 함수들
+async function retryDownload(downloadId) {
+    try {
+        const response = await window.app.apiRequest('POST', `/downloads/${downloadId}/retry_download/`);
+        showToast('success', '다운로드를 재시도합니다.');
+        setTimeout(() => location.reload(), 2000);
+    } catch (error) {
+        showToast('error', '재시도 실패');
+    }
+}
+
+async function forceDownload(downloadId) {
+    if (!confirm('강제로 다운로드를 시작하시겠습니까?')) return;
+    
+    try {
+        showToast('info', '강제 다운로드 시작 중...');
+        const response = await window.app.apiRequest('POST', `/downloads/${downloadId}/force_download/`);
+        showToast('success', '강제 다운로드가 시작되었습니다.');
+        setTimeout(() => location.reload(), 2000);
+    } catch (error) {
+        showToast('error', '강제 다운로드 실패');
+    }
+}
+
+async function cancelDownload(downloadId) {
+    if (!confirm('다운로드를 취소하시겠습니까?')) return;
+    
+    try {
+        const response = await window.app.apiRequest('POST', `/downloads/${downloadId}/cancel/`);
+        showToast('success', '다운로드가 취소되었습니다.');
+        setTimeout(() => location.reload(), 1000);
+    } catch (error) {
+        showToast('error', '취소 실패');
+    }
+}
+
+function playVideo(downloadId) {
+    window.open(`/api/v1/downloads/${downloadId}/file/`, '_blank');
+}
+
+// 삭제 관련 전역 변수와 함수
+let deleteDownloadId = null;
+
+function deleteDownload(downloadId) {
+    deleteDownloadId = downloadId;
+    document.getElementById('deleteModal').showModal();
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').close();
+    deleteDownloadId = null;
+}
+
+async function confirmDelete() {
+    if (!deleteDownloadId) return;
+    
+    try {
+        const response = await window.app.apiRequest('DELETE', `/downloads/${deleteDownloadId}/delete_file/`);
+        showToast('success', '다운로드가 삭제되었습니다.');
+        closeDeleteModal();
+        setTimeout(() => location.reload(), 1000);
+    } catch (error) {
+        showToast('error', '삭제 실패');
+    }
+}
+
+function showError(downloadId) {
+    const errorMessage = window.errorMessages && window.errorMessages[downloadId];
+    if (errorMessage) {
+        document.getElementById('errorMessage').textContent = errorMessage;
+        document.getElementById('errorModal').showModal();
+    }
+}
