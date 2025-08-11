@@ -1,0 +1,1205 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 - Streamly{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<!-- 헤더 -->
+<div class="flex justify-between items-center mb-8">
+    <div>
+        <h1 class="text-4xl font-bold text-base-content mb-2">📊 대시보드</h1>
+        <div class="text-sm opacity-70">마지막 업데이트: {% now "Y년 m월 d일 H:i:s" %}</div>
+    </div>
+    <div class="hidden lg:flex items-center gap-2">
+        <div class="badge badge-outline">
+            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            실시간 모니터링 중
+        </div>
+    </div>
+</div>
+
+<!-- 통계 카드 그리드 -->
+<div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
+    <!-- 전체 채널 -->
+    <div class="stats shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+        <div class="stat p-3 sm:p-4">
+            <div class="stat-figure text-white/70">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <div class="stat-title text-white/80 text-xs sm:text-sm">전체 채널</div>
+            <div class="stat-value text-white text-lg sm:text-2xl md:text-3xl">{{ stats.total_channels }}</div>
+            <div class="stat-desc text-white/70 text-xs">활성: {{ stats.active_channels }}개</div>
+        </div>
+    </div>
+
+    <!-- 현재 라이브 -->
+    <div class="stats shadow-lg {% if stats.current_live_count > 0 %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-green-500 to-green-600{% endif %} text-white">
+        <div class="stat p-3 sm:p-4">
+            <div class="stat-figure text-white/70">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a2.5 2.5 0 000-5H9v5zm0 0H7.5a2.5 2.5 0 010-5H9v5z"/>
+                </svg>
+            </div>
+            <div class="stat-title text-white/80 text-xs sm:text-sm">현재 라이브</div>
+            <div class="stat-value text-white text-lg sm:text-2xl md:text-3xl">{{ stats.current_live_count }}</div>
+            <div class="stat-desc text-white/70 text-xs">총 {{ stats.total_live_streams }}개 기록</div>
+        </div>
+    </div>
+
+    <!-- 완료된 다운로드 -->
+    <div class="stats shadow-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+        <div class="stat p-3 sm:p-4">
+            <div class="stat-figure text-white/70">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <div class="stat-title text-white/80 text-xs sm:text-sm">완료된 다운로드</div>
+            <div class="stat-value text-white text-lg sm:text-2xl md:text-3xl">{{ stats.completed }}</div>
+            <div class="stat-desc text-white/70 text-xs">총 {{ stats.total }}개 중</div>
+        </div>
+    </div>
+
+    <!-- 사용된 공간 -->
+    <div class="stats shadow-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+        <div class="stat p-3 sm:p-4">
+            <div class="stat-figure text-white/70">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                </svg>
+            </div>
+            <div class="stat-title text-white/80 text-xs sm:text-sm">사용된 공간</div>
+            <div class="stat-value text-white text-base sm:text-lg md:text-xl lg:text-2xl">{{ stats.total_storage_used }}</div>
+            <div class="stat-desc text-white/70 text-xs">다운로드 파일</div>
+        </div>
+    </div>
+</div>
+
+<!-- 다운로드 현황 (있는 경우만) -->
+{% if stats.pending or stats.downloading or stats.failed %}
+<div class="alert alert-info shadow-lg mb-8">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+    </svg>
+    <div>
+        <h3 class="font-bold">다운로드 현황</h3>
+        <div class="flex flex-wrap gap-3 mt-2">
+            {% if stats.pending %}
+            <div class="badge badge-neutral gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                대기 중: {{ stats.pending }}개
+            </div>
+            {% endif %}
+            {% if stats.downloading %}
+            <div class="badge badge-primary gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3"/>
+                </svg>
+                다운로드 중: {{ stats.downloading }}개
+            </div>
+            {% endif %}
+            {% if stats.failed %}
+            <div class="badge badge-error gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                실패: {{ stats.failed }}개
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 채널 관리 섹션 -->
+<div class="card bg-base-100 shadow-lg mb-8">
+    <div class="card-body">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="card-title text-2xl font-bold">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                채널 관리
+            </h2>
+            <div class="flex gap-2">
+                <button id="add-channel-btn" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    채널 추가
+                </button>
+                <button id="refresh-channels-btn" class="btn btn-outline">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 채널 검색 및 필터 -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <div class="flex-1">
+                <input type="text" id="channel-search" placeholder="채널명 또는 ID로 검색..." class="input input-bordered w-full">
+            </div>
+            <select id="channel-status-filter" class="select select-bordered">
+                <option value="all">전체</option>
+                <option value="active">활성화</option>
+                <option value="inactive">비활성화</option>
+            </select>
+        </div>
+        
+        <!-- 채널 목록 -->
+        <div id="channels-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="text-center col-span-full py-12">
+                <div class="loading loading-spinner loading-lg"></div>
+                <p class="mt-4 text-base-content/60">채널 정보를 불러오는 중...</p>
+            </div>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div id="channels-pagination" class="flex justify-center mt-8" style="display: none;">
+            <div class="btn-group">
+                <button id="prev-page-btn" class="btn btn-outline">«</button>
+                <button id="current-page-btn" class="btn btn-active">1</button>
+                <button id="next-page-btn" class="btn btn-outline">»</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 현재 라이브 중인 스트림 (전체 너비) -->
+<div id="live-streams-section" class="card bg-base-100 shadow-lg mb-8" style="display: none;">
+    <div class="card-body">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="card-title text-xl font-bold text-error">
+                <svg class="w-6 h-6 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zM9.5 7.5A1.5 1.5 0 0011 9v2a1.5 1.5 0 11-3 0V9a1.5 1.5 0 011.5-1.5z"/>
+                </svg>
+                현재 라이브 중인 스트림
+            </h2>
+            <div class="badge badge-error badge-lg">
+                <div class="w-2 h-2 bg-white rounded-full animate-pulse mr-2"></div>
+                LIVE
+            </div>
+        </div>
+        
+        <div id="live-streams-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- 동적으로 로드 -->
+        </div>
+    </div>
+</div>
+
+<!-- 메인 콘텐츠 그리드 -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+    <!-- 최근 활동 (2/3 너비) -->
+    <div class="xl:col-span-2">
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h2 class="card-title text-xl font-bold mb-6">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    최근 활동
+                </h2>
+                
+                <div id="recent-activities-list">
+                    <!-- 동적으로 로드 -->
+                    <div class="text-center py-12">
+                        <div class="loading loading-spinner loading-md"></div>
+                        <p class="mt-4 text-base-content/60">최근 활동을 불러오는 중...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 활성 채널 (1/3 너비) -->
+    <div class="xl:col-span-1">
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h2 class="card-title text-xl font-bold mb-6">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    활성 채널
+                </h2>
+                
+                {% if active_channels %}
+                    <div class="space-y-3">
+                        {% for channel in active_channels %}
+                        <div class="flex items-center justify-between p-3 rounded-lg border border-base-300 hover:border-base-content/20 transition-colors">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-base-content truncate">{{ channel.name }}</p>
+                                <p class="text-xs text-base-content/60 mt-1">
+                                    {% if channel.last_checked %}
+                                        마지막 확인: {{ channel.last_checked|timesince }} 전
+                                    {% else %}
+                                        아직 확인하지 않음
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="badge badge-success badge-sm ml-2">활성</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                {% else %}
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 text-base-content/30">
+                            <svg fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 3a2 2 0 000 4h12a2 2 0 000-4H4zm0 6a2 2 0 000 4h12a2 2 0 000-4H4zm0 6a2 2 0 000 4h12a2 2 0 000-4H4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <p class="text-base-content/60">활성 채널 현황을 확인하세요.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 채널 추가 모달 -->
+<dialog id="add-channel-modal" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-4">새 채널 추가</h3>
+        
+        <form id="add-channel-form">
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text">YouTube URL</span>
+                </label>
+                <input type="url" id="youtube-url-input" placeholder="https://www.youtube.com/@channelname" class="input input-bordered w-full" required>
+                <div class="label">
+                    <span class="label-text-alt text-base-content/70">다양한 형식의 YouTube 채널 URL을 지원합니다</span>
+                </div>
+            </div>
+            
+            <!-- 채널 미리보기 영역 -->
+            <div id="channel-preview" class="card bg-base-200 mb-4" style="display: none;">
+                <div class="card-body p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="avatar">
+                            <div class="w-12 h-12 rounded-full bg-base-300"></div>
+                        </div>
+                        <div>
+                            <h4 id="preview-channel-name" class="font-semibold">채널명</h4>
+                            <p id="preview-channel-id" class="text-sm opacity-70">채널 ID</p>
+                        </div>
+                    </div>
+                    <div id="duplicate-warning" class="alert alert-warning mt-2" style="display: none;">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>이미 등록된 채널입니다.</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-control mb-6">
+                <label class="label cursor-pointer">
+                    <span class="label-text">즉시 모니터링 시작</span>
+                    <input type="checkbox" id="is-active-input" class="toggle toggle-primary" checked>
+                </label>
+            </div>
+            
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-channel-modal').close()">취소</button>
+                <button type="submit" id="add-channel-submit-btn" class="btn btn-primary" disabled>채널 추가</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- 채널 편집 모달 -->
+<dialog id="edit-channel-modal" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-4">채널 수정</h3>
+        
+        <form id="edit-channel-form">
+            <input type="hidden" id="edit-channel-id">
+            
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text">채널명</span>
+                </label>
+                <input type="text" id="edit-channel-name" class="input input-bordered w-full" required>
+            </div>
+            
+            <div class="form-control mb-6">
+                <label class="label cursor-pointer">
+                    <span class="label-text">모니터링 활성화</span>
+                    <input type="checkbox" id="edit-is-active" class="toggle toggle-primary">
+                </label>
+            </div>
+            
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-channel-modal').close()">취소</button>
+                <button type="submit" class="btn btn-primary">수정 완료</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- 삭제 확인 모달 -->
+<dialog id="delete-channel-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="text-lg font-bold mb-4 text-error">채널 삭제 확인</h3>
+        <p class="mb-4">정말로 이 채널을 삭제하시겠습니까?</p>
+        <div class="bg-base-200 p-4 rounded-lg mb-4">
+            <p><strong id="delete-channel-name">채널명</strong></p>
+            <p class="text-sm opacity-70" id="delete-channel-info">관련된 모든 라이브 스트림 기록도 함께 삭제됩니다.</p>
+        </div>
+        
+        <div class="modal-action">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('delete-channel-modal').close()">취소</button>
+            <button type="button" id="confirm-delete-btn" class="btn btn-error">삭제</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- JavaScript 코드 -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+// Dashboard 관리 객체
+const Dashboard = {
+    currentPage: 1,
+    totalPages: 1,
+    currentFilters: {
+        search: '',
+        status: 'all'
+    },
+    
+    init() {
+        this.bindEvents();
+        this.loadChannels();
+        this.startAutoRefresh();
+    },
+    
+    bindEvents() {
+        // 채널 추가 버튼
+        document.getElementById('add-channel-btn').addEventListener('click', () => {
+            this.openAddChannelModal();
+        });
+        
+        // 새로고침 버튼
+        document.getElementById('refresh-channels-btn').addEventListener('click', () => {
+            this.loadChannels();
+        });
+        
+        // 검색 입력
+        const searchInput = document.getElementById('channel-search');
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                this.currentFilters.search = e.target.value;
+                this.currentPage = 1;
+                this.loadChannels();
+            }, 500);
+        });
+        
+        // 상태 필터
+        document.getElementById('channel-status-filter').addEventListener('change', (e) => {
+            this.currentFilters.status = e.target.value;
+            this.currentPage = 1;
+            this.loadChannels();
+        });
+        
+        // 페이지네이션
+        document.getElementById('prev-page-btn').addEventListener('click', () => {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+                this.loadChannels();
+            }
+        });
+        
+        document.getElementById('next-page-btn').addEventListener('click', () => {
+            if (this.currentPage < this.totalPages) {
+                this.currentPage++;
+                this.loadChannels();
+            }
+        });
+        
+        // URL 입력 실시간 검증
+        document.getElementById('youtube-url-input').addEventListener('input', (e) => {
+            clearTimeout(this.previewTimeout);
+            this.previewTimeout = setTimeout(() => {
+                this.previewChannel(e.target.value);
+            }, 1000);
+        });
+        
+        // 폼 제출
+        document.getElementById('add-channel-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitAddChannel();
+        });
+        
+        document.getElementById('edit-channel-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitEditChannel();
+        });
+    },
+    
+    async loadChannels() {
+        const params = new URLSearchParams({
+            page: this.currentPage,
+            per_page: 12,
+            search: this.currentFilters.search,
+            status: this.currentFilters.status
+        });
+        
+        try {
+            const response = await fetch(`/channels/ajax/list/?${params}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderChannels(data.channels);
+                this.updatePagination(data.pagination);
+            } else {
+                this.showError('채널 목록을 불러올 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('채널 목록 로드 오류:', error);
+            this.showError('채널 목록을 불러오는 중 오류가 발생했습니다.');
+        }
+    },
+    
+    renderChannels(channels) {
+        const grid = document.getElementById('channels-grid');
+        
+        if (channels.length === 0) {
+            grid.innerHTML = `
+                <div class="text-center col-span-full py-12">
+                    <div class="w-24 h-24 mx-auto mb-4 text-base-content/30">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4 3a2 2 0 000 4h12a2 2 0 000-4H4zm0 6a2 2 0 000 4h12a2 2 0 000-4H4zm0 6a2 2 0 000 4h12a2 2 0 000-4H4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <p class="text-base-content/60 mb-4">등록된 채널이 없습니다.</p>
+                    <button class="btn btn-primary" onclick="Dashboard.openAddChannelModal()">첫 채널 추가하기</button>
+                </div>
+            `;
+            return;
+        }
+        
+        grid.innerHTML = channels.map(channel => `
+            <div class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow">
+                <div class="card-body p-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-base truncate">${channel.name}</h3>
+                            <p class="text-xs text-base-content/60 truncate">${channel.channel_id}</p>
+                        </div>
+                        <div class="dropdown dropdown-end">
+                            <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                </svg>
+                            </div>
+                            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-32">
+                                <li><a onclick="Dashboard.editChannel(${channel.id})">편집</a></li>
+                                <li><a onclick="Dashboard.checkChannelNow(${channel.id})">즉시 확인</a></li>
+                                <li><a onclick="Dashboard.deleteChannel(${channel.id}, '${channel.name}')" class="text-error">삭제</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between mt-3">
+                        <div class="form-control">
+                            <label class="label cursor-pointer gap-2">
+                                <input type="checkbox" class="toggle toggle-sm toggle-primary" 
+                                       ${channel.is_active ? 'checked' : ''}
+                                       onchange="Dashboard.toggleChannel(${channel.id})">
+                                <span class="text-xs">${channel.is_active ? '활성' : '비활성'}</span>
+                            </label>
+                        </div>
+                        ${channel.last_checked ? 
+                            `<span class="text-xs text-base-content/60">
+                                ${new Date(channel.last_checked).toLocaleString('ko-KR')}
+                            </span>` : 
+                            '<span class="text-xs text-base-content/60">확인 안함</span>'
+                        }
+                    </div>
+                    
+                    <!-- 즉시 체크 버튼 추가 -->
+                    <div class="mt-3 flex gap-2">
+                        <button class="btn btn-sm btn-primary flex-1" onclick="Dashboard.checkChannelNow(${channel.id})">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            즉시 체크
+                        </button>
+                        <a href="${channel.url}" target="_blank" class="btn btn-sm btn-outline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                        </a>
+                    </div>
+                    
+                    ${channel.recent_stream ? `
+                        <div class="mt-2 p-2 bg-base-200 rounded text-xs">
+                            <div class="flex items-center gap-1">
+                                <div class="w-2 h-2 rounded-full ${channel.recent_stream.status === 'live' ? 'bg-red-500' : 'bg-green-500'}"></div>
+                                <span class="truncate">${channel.recent_stream.title}</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    },
+    
+    updatePagination(pagination) {
+        const paginationEl = document.getElementById('channels-pagination');
+        const currentPageBtn = document.getElementById('current-page-btn');
+        const prevBtn = document.getElementById('prev-page-btn');
+        const nextBtn = document.getElementById('next-page-btn');
+        
+        this.currentPage = pagination.current_page;
+        this.totalPages = pagination.total_pages;
+        
+        if (pagination.total_pages > 1) {
+            paginationEl.style.display = 'flex';
+            currentPageBtn.textContent = `${pagination.current_page} / ${pagination.total_pages}`;
+            
+            prevBtn.disabled = !pagination.has_previous;
+            nextBtn.disabled = !pagination.has_next;
+            
+            prevBtn.classList.toggle('btn-disabled', !pagination.has_previous);
+            nextBtn.classList.toggle('btn-disabled', !pagination.has_next);
+        } else {
+            paginationEl.style.display = 'none';
+        }
+    },
+    
+    openAddChannelModal() {
+        document.getElementById('add-channel-modal').showModal();
+        document.getElementById('youtube-url-input').focus();
+        // 폼 초기화
+        document.getElementById('add-channel-form').reset();
+        document.getElementById('channel-preview').style.display = 'none';
+        document.getElementById('add-channel-submit-btn').disabled = true;
+    },
+    
+    async previewChannel(url) {
+        if (!url.trim()) {
+            document.getElementById('channel-preview').style.display = 'none';
+            document.getElementById('add-channel-submit-btn').disabled = true;
+            return;
+        }
+        
+        // URL이 유효한 YouTube URL인지 기본 검증
+        const isValidYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
+        
+        if (isValidYouTubeUrl) {
+            // URL이 유효하면 일단 버튼 활성화
+            document.getElementById('add-channel-submit-btn').disabled = false;
+            
+            // 채널 미리보기는 백그라운드에서 시도
+            try {
+                const response = await fetch('/channels/ajax/preview/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCSRFToken()
+                    },
+                    body: JSON.stringify({ youtube_url: url })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showChannelPreview(data.channel_info);
+                } else {
+                    // 미리보기 실패해도 버튼은 활성 상태 유지
+                    console.warn('채널 미리보기 실패:', data.message);
+                    document.getElementById('channel-preview').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('채널 미리보기 오류:', error);
+                // 에러가 나도 버튼은 활성 상태 유지
+                document.getElementById('channel-preview').style.display = 'none';
+            }
+        } else {
+            // YouTube URL이 아니면 버튼 비활성화
+            document.getElementById('channel-preview').style.display = 'none';
+            document.getElementById('add-channel-submit-btn').disabled = true;
+        }
+    },
+    
+    showChannelPreview(channelInfo) {
+        const preview = document.getElementById('channel-preview');
+        const duplicateWarning = document.getElementById('duplicate-warning');
+        const submitBtn = document.getElementById('add-channel-submit-btn');
+        
+        document.getElementById('preview-channel-name').textContent = channelInfo.name;
+        document.getElementById('preview-channel-id').textContent = channelInfo.channel_id;
+        
+        preview.style.display = 'block';
+        
+        if (channelInfo.is_duplicate) {
+            duplicateWarning.style.display = 'flex';
+            submitBtn.disabled = true;
+        } else {
+            duplicateWarning.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+    },
+    
+    hideChannelPreview() {
+        document.getElementById('channel-preview').style.display = 'none';
+        document.getElementById('add-channel-submit-btn').disabled = true;
+    },
+    
+    async submitAddChannel() {
+        const form = document.getElementById('add-channel-form');
+        const formData = new FormData(form);
+        
+        const data = {
+            youtube_url: document.getElementById('youtube-url-input').value,
+            is_active: document.getElementById('is-active-input').checked
+        };
+        
+        try {
+            const response = await fetch('/channels/ajax/add/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken()
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showSuccess(result.message);
+                document.getElementById('add-channel-modal').close();
+                this.loadChannels();
+            } else {
+                this.showError(result.message || '채널 추가에 실패했습니다.');
+            }
+        } catch (error) {
+            console.error('채널 추가 오류:', error);
+            this.showError('채널 추가 중 오류가 발생했습니다.');
+        }
+    },
+    
+    async toggleChannel(channelId) {
+        try {
+            const response = await fetch(`/channels/ajax/toggle/${channelId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken()
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showSuccess(data.message);
+                // UI 즉시 업데이트 (필요시)
+            } else {
+                this.showError(data.message);
+                // 실패시 원래 상태로 복원
+                this.loadChannels();
+            }
+        } catch (error) {
+            console.error('채널 토글 오류:', error);
+            this.showError('채널 상태 변경 중 오류가 발생했습니다.');
+            this.loadChannels();
+        }
+    },
+    
+    async checkChannelNow(channelId) {
+        try {
+            // 로딩 표시
+            this.showInfo('채널 체크를 시작하는 중...');
+            
+            const response = await fetch(`/api/channels/${channelId}/check_now/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken()
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.showSuccess(data.message || '채널 체크가 시작되었습니다.');
+                
+                // 5초 후 채널 목록 새로고침
+                setTimeout(() => {
+                    this.loadChannels();
+                }, 5000);
+            } else {
+                this.showError(data.detail || data.message || '채널 체크 시작에 실패했습니다.');
+            }
+        } catch (error) {
+            console.error('채널 확인 오류:', error);
+            this.showError('채널 확인 중 오류가 발생했습니다.');
+        }
+    },
+    
+    async editChannel(channelId) {
+        try {
+            // 현재 채널 정보를 가져와서 폼에 채우기
+            const response = await fetch(`/channels/ajax/list/?page=1&per_page=100`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const channel = data.channels.find(c => c.id === channelId);
+                if (channel) {
+                    document.getElementById('edit-channel-id').value = channel.id;
+                    document.getElementById('edit-channel-name').value = channel.name;
+                    document.getElementById('edit-is-active').checked = channel.is_active;
+                    document.getElementById('edit-channel-modal').showModal();
+                }
+            }
+        } catch (error) {
+            console.error('채널 정보 로드 오류:', error);
+            this.showError('채널 정보를 불러올 수 없습니다.');
+        }
+    },
+    
+    async submitEditChannel() {
+        const channelId = document.getElementById('edit-channel-id').value;
+        const data = {
+            name: document.getElementById('edit-channel-name').value,
+            is_active: document.getElementById('edit-is-active').checked
+        };
+        
+        try {
+            const response = await fetch(`/channels/ajax/edit/${channelId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken()
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showSuccess(result.message);
+                document.getElementById('edit-channel-modal').close();
+                this.loadChannels();
+            } else {
+                this.showError(result.message || '채널 수정에 실패했습니다.');
+            }
+        } catch (error) {
+            console.error('채널 수정 오류:', error);
+            this.showError('채널 수정 중 오류가 발생했습니다.');
+        }
+    },
+    
+    deleteChannel(channelId, channelName) {
+        document.getElementById('delete-channel-name').textContent = channelName;
+        document.getElementById('confirm-delete-btn').onclick = () => this.confirmDeleteChannel(channelId);
+        document.getElementById('delete-channel-modal').showModal();
+    },
+    
+    async confirmDeleteChannel(channelId) {
+        try {
+            const response = await fetch(`/channels/ajax/delete/${channelId}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': this.getCSRFToken()
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showSuccess(data.message);
+                document.getElementById('delete-channel-modal').close();
+                this.loadChannels();
+            } else {
+                this.showError(data.message);
+            }
+        } catch (error) {
+            console.error('채널 삭제 오류:', error);
+            this.showError('채널 삭제 중 오류가 발생했습니다.');
+        }
+    },
+    
+    startAutoRefresh() {
+        // 30초마다 채널 목록 새로고침
+        setInterval(() => {
+            this.loadChannels();
+        }, 30000);
+        
+        // 10초마다 실시간 데이터 새로고침
+        setInterval(() => {
+            this.loadRealtimeData();
+        }, 10000);
+        
+        // 페이지 로드 시 즉시 실시간 데이터 로드
+        this.loadRealtimeData();
+    },
+    
+    async loadRealtimeData() {
+        await Promise.all([
+            this.updateStats(),
+            this.updateActivities(),
+            this.updateLiveStreams()
+        ]);
+    },
+    
+    async updateStats() {
+        try {
+            const response = await fetch('/ajax/dashboard/stats/');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderStats(data.stats);
+            }
+        } catch (error) {
+            console.error('통계 업데이트 오류:', error);
+        }
+    },
+    
+    renderStats(stats) {
+        // 통계 카드들 업데이트
+        const elements = {
+            total_channels: document.querySelector('.stats .stat-value').textContent = stats.total_channels,
+            active_channels: document.querySelector('.stats .stat-desc').textContent = `활성: ${stats.active_channels}개`,
+            current_live_count: document.querySelectorAll('.stats .stat-value')[1].textContent = stats.current_live_count,
+            total_live_streams: document.querySelectorAll('.stats .stat-desc')[1].textContent = `총 ${stats.total_live_streams}개 기록`,
+            completed: document.querySelectorAll('.stats .stat-value')[2].textContent = stats.completed,
+            total: document.querySelectorAll('.stats .stat-desc')[2].textContent = `총 ${stats.total}개 중`,
+            total_storage_used: document.querySelectorAll('.stats .stat-value')[3].textContent = stats.total_storage_used
+        };
+        
+        // 현재 라이브 카드 색상 업데이트
+        const liveCard = document.querySelectorAll('.stats')[1];
+        if (stats.current_live_count > 0) {
+            liveCard.className = 'stats shadow-lg bg-gradient-to-br from-red-500 to-red-600 text-white';
+        } else {
+            liveCard.className = 'stats shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white';
+        }
+    },
+    
+    async updateActivities() {
+        try {
+            const response = await fetch('/ajax/dashboard/activities/');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderActivities(data.activities);
+            }
+        } catch (error) {
+            console.error('활동 업데이트 오류:', error);
+        }
+    },
+    
+    renderActivities(activities) {
+        const container = document.getElementById('recent-activities-list');
+        
+        if (activities.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-24 h-24 mx-auto mb-4 text-base-content/30">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h10v7h-2l-1-2H8l-1 2H5V5z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <p class="text-base-content/60">최근 24시간 동안 활동이 없습니다.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="space-y-4">
+                ${activities.map(activity => `
+                    <div class="flex items-center gap-4 p-3 rounded-lg border border-base-300 hover:border-base-content/20 transition-colors">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 rounded-full bg-${this.getActivityColor(activity.type)} flex items-center justify-center">
+                                ${this.getActivityIcon(activity.icon)}
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-base-content">${activity.message}</p>
+                            <p class="text-sm text-base-content/70 truncate">${activity.title}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs text-base-content/60">${activity.channel_name}</span>
+                                <span class="text-xs text-base-content/40">•</span>
+                                <span class="text-xs text-base-content/60">${this.formatTime(activity.timestamp)}</span>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <div class="badge badge-${this.getStatusBadge(activity.status)} badge-sm">
+                                ${activity.status}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    },
+    
+    async updateLiveStreams() {
+        try {
+            const response = await fetch('/ajax/dashboard/live-streams/');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderLiveStreams(data.live_streams);
+            }
+        } catch (error) {
+            console.error('라이브 스트림 업데이트 오류:', error);
+        }
+    },
+    
+    renderLiveStreams(streams) {
+        const liveSection = document.getElementById('live-streams-section');
+        const streamsGrid = document.getElementById('live-streams-grid');
+        
+        if (streams.length === 0) {
+            liveSection.style.display = 'none';
+            return;
+        }
+        
+        liveSection.style.display = 'block';
+        
+        streamsGrid.innerHTML = streams.map(stream => `
+            <div class="card bg-base-100 border-2 border-red-200 hover:border-red-300 transition-colors">
+                <div class="card-body p-4">
+                    <!-- 썸네일과 제목 -->
+                    <div class="flex items-start gap-3 mb-3">
+                        ${stream.thumbnail ? 
+                            `<div class="avatar">
+                                <div class="w-16 h-16 rounded">
+                                    <img src="${stream.thumbnail}" alt="썸네일" onerror="this.style.display='none'">
+                                </div>
+                            </div>` : 
+                            `<div class="w-16 h-16 rounded bg-red-100 flex items-center justify-center">
+                                <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zM9.5 7.5A1.5 1.5 0 0011 9v2a1.5 1.5 0 11-3 0V9a1.5 1.5 0 011.5-1.5z"/>
+                                </svg>
+                            </div>`
+                        }
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-base leading-tight line-clamp-2 mb-1">${stream.title}</h3>
+                            <p class="text-sm text-base-content/70 mb-2">${stream.channel_name}</p>
+                            <div class="flex items-center gap-1">
+                                <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                <span class="text-xs text-red-600 font-medium">LIVE</span>
+                                <span class="text-xs text-base-content/60 ml-2">${this.formatTime(stream.started_at)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 다운로드 상태 및 액션 -->
+                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-base-300">
+                        <div class="flex-1">
+                            ${stream.download_status ? `
+                                <div class="badge badge-${this.getDownloadStatusColor(stream.download_status)} gap-1 text-xs">
+                                    ${this.getDownloadStatusIcon(stream.download_status)}
+                                    ${stream.download_status}
+                                </div>
+                            ` : `
+                                <div class="badge badge-ghost gap-1 text-xs">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    대기 중
+                                </div>
+                            `}
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <!-- YouTube에서 보기 -->
+                            <a href="${stream.url}" target="_blank" class="btn btn-ghost btn-xs">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                </svg>
+                            </a>
+                            
+                            <!-- 다운로드 버튼 -->
+                            ${!stream.download_status || stream.download_status === 'failed' ? `
+                                <button class="btn btn-primary btn-xs" onclick="Dashboard.startDownload(${stream.id})">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3"/>
+                                    </svg>
+                                    다운로드
+                                </button>
+                            ` : `
+                                <button class="btn btn-ghost btn-xs" disabled>
+                                    ${stream.download_status === 'downloading' ? '진행 중...' : '완료'}
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        // 활성 채널 섹션의 라이브 상태도 업데이트
+        this.updateActiveChannelsLiveStatus(streams);
+    },
+    
+    updateActiveChannelsLiveStatus(streams) {
+        const activeChannelsContainer = document.querySelector('.xl\\:col-span-1 .space-y-3');
+        if (!activeChannelsContainer) return;
+        
+        const channelElements = activeChannelsContainer.querySelectorAll('.flex.items-center.justify-between');
+        
+        channelElements.forEach(element => {
+            const channelName = element.querySelector('.font-medium')?.textContent;
+            const liveStream = streams.find(stream => stream.channel_name === channelName);
+            const badge = element.querySelector('.badge');
+            
+            if (liveStream && badge) {
+                badge.className = 'badge badge-error badge-sm ml-2';
+                badge.textContent = 'LIVE';
+            } else if (badge && !liveStream) {
+                badge.className = 'badge badge-success badge-sm ml-2';
+                badge.textContent = '활성';
+            }
+        });
+    },
+    
+    getDownloadStatusColor(status) {
+        const colors = {
+            'pending': 'warning',
+            'downloading': 'info', 
+            'completed': 'success',
+            'failed': 'error'
+        };
+        return colors[status] || 'ghost';
+    },
+    
+    getDownloadStatusIcon(status) {
+        const icons = {
+            'pending': '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+            'downloading': '<svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3"/></svg>',
+            'completed': '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
+            'failed': '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>'
+        };
+        return icons[status] || icons['pending'];
+    },
+    
+    async startDownload(streamId) {
+        try {
+            const response = await fetch(`/ajax/dashboard/start-download/${streamId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': this.getCSRFToken()
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showSuccess(data.message);
+                this.updateLiveStreams(); // 상태 새로고침
+            } else {
+                this.showError(data.message);
+            }
+        } catch (error) {
+            console.error('다운로드 시작 오류:', error);
+            this.showError('다운로드 시작 중 오류가 발생했습니다.');
+        }
+    },
+    
+    getActivityColor(type) {
+        const colors = {
+            'live_detected': 'red-500',
+            'stream_ended': 'green-500',
+            'download_status': 'blue-500'
+        };
+        return colors[type] || 'gray-500';
+    },
+    
+    getActivityIcon(icon) {
+        const icons = {
+            'play-circle': '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a2.5 2.5 0 000-5H9v5zm0 0H7.5a2.5 2.5 0 010-5H9v5z"/></svg>',
+            'check-circle': '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+            'download': '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
+            'clock': '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+            'x-circle': '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+        };
+        return icons[icon] || icons['clock'];
+    },
+    
+    getStatusBadge(status) {
+        const badges = {
+            'live': 'error',
+            'completed': 'success',
+            'downloading': 'warning',
+            'pending': 'info',
+            'failed': 'error'
+        };
+        return badges[status] || 'neutral';
+    },
+    
+    formatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        
+        if (diff < 60) return `${diff}초 전`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+        return date.toLocaleDateString('ko-KR');
+    },
+    
+    showSuccess(message) {
+        // 토스트 메시지 표시 (DaisyUI toast 또는 사용자 정의)
+        this.showToast(message, 'alert-success');
+    },
+    
+    showError(message) {
+        this.showToast(message, 'alert-error');
+    },
+    
+    showInfo(message) {
+        this.showToast(message, 'alert-info');
+    },
+    
+    showToast(message, className) {
+        const toast = document.createElement('div');
+        toast.className = `alert ${className} fixed top-4 right-4 z-50 max-w-md`;
+        toast.innerHTML = `
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <span>${message}</span>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    },
+    
+    getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+               document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
+};
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    Dashboard.init();
+});
+</script>
+{% endblock %}

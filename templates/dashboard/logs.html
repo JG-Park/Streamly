@@ -1,0 +1,287 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}시스템 로그 - Streamly{% endblock %}
+
+{% block content %}
+<!-- 페이지 헤더 -->
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">시스템 로그</h1>
+    <div class="flex gap-2">
+        <!-- 필터 -->
+        <select id="levelFilter" class="select select-bordered">
+            <option value="">모든 레벨</option>
+            <option value="DEBUG">DEBUG</option>
+            <option value="INFO">INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="ERROR">ERROR</option>
+            <option value="CRITICAL">CRITICAL</option>
+        </select>
+        <select id="categoryFilter" class="select select-bordered">
+            <option value="">모든 카테고리</option>
+            <option value="system">시스템</option>
+            <option value="channel">채널</option>
+            <option value="download">다운로드</option>
+            <option value="telegram">텔레그램</option>
+            <option value="celery">Celery</option>
+        </select>
+        <button onclick="refreshLogs()" class="btn btn-ghost">
+            <i class="fas fa-sync"></i>
+        </button>
+    </div>
+</div>
+
+<!-- 로그 테이블 -->
+<div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+        <div class="overflow-x-auto">
+            <table class="table table-xs">
+                <thead>
+                    <tr>
+                        <th>시간</th>
+                        <th>레벨</th>
+                        <th>카테고리</th>
+                        <th>메시지</th>
+                        <th>세부사항</th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody">
+                    {% for log in logs %}
+                    <tr data-level="{{ log.level }}" data-category="{{ log.category }}" 
+                        class="{% if log.level == 'ERROR' or log.level == 'CRITICAL' %}text-error{% elif log.level == 'WARNING' %}text-warning{% endif %}">
+                        <td>
+                            <div class="whitespace-nowrap">
+                                <p>{{ log.created_at|date:"Y-m-d" }}</p>
+                                <p class="text-xs opacity-50">{{ log.created_at|date:"H:i:s.u" }}</p>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-xs badge-{% if log.level == 'ERROR' or log.level == 'CRITICAL' %}error{% elif log.level == 'WARNING' %}warning{% elif log.level == 'INFO' %}info{% elif log.level == 'DEBUG' %}secondary{% else %}ghost{% endif %}">
+                                {{ log.level }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge badge-xs badge-ghost">{{ log.category }}</span>
+                        </td>
+                        <td>
+                            <div class="max-w-lg">
+                                <p class="truncate">{{ log.message }}</p>
+                            </div>
+                        </td>
+                        <td>
+                            {% if log.extra_data %}
+                            <button onclick="showLogDetails({{ log.id }})" class="btn btn-xs btn-ghost">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center opacity-50">로그가 없습니다</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        {% if page_obj %}
+        <div class="join mt-4">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="join-item btn btn-sm">«</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <button class="join-item btn btn-sm btn-active">{{ num }}</button>
+                {% else %}
+                <a href="?page={{ num }}" class="join-item btn btn-sm">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="join-item btn btn-sm">»</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 실시간 로그 -->
+<div class="card bg-base-100 shadow-xl mt-6">
+    <div class="card-body">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title">
+                <i class="fas fa-stream"></i>
+                실시간 로그
+            </h2>
+            <div class="flex gap-2">
+                <button id="pauseBtn" onclick="togglePause()" class="btn btn-sm btn-ghost">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button onclick="clearRealtimeLogs()" class="btn btn-sm btn-ghost">
+                    <i class="fas fa-eraser"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div id="realtimeLogContainer" class="bg-base-200 rounded p-4 h-64 overflow-y-auto font-mono text-xs">
+            <!-- 실시간 로그가 여기에 표시됩니다 -->
+        </div>
+    </div>
+</div>
+
+<!-- 로그 상세 모달 -->
+<dialog id="logDetailModal" class="modal">
+    <div class="modal-box max-w-3xl">
+        <h3 class="font-bold text-lg mb-4">로그 상세 정보</h3>
+        <div id="logDetailContent" class="space-y-2">
+            <!-- 상세 정보가 여기에 표시됩니다 -->
+        </div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('logDetailModal').close()" class="btn">닫기</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+let isPaused = false;
+let realtimeLogInterval = null;
+const logDetails = {};
+
+// 로그 상세 데이터 저장
+{% for log in logs %}
+    {% if log.extra_data %}
+    logDetails[{{ log.id }}] = {{ log.extra_data|safe }};
+    {% endif %}
+{% endfor %}
+
+// 필터링
+document.getElementById('levelFilter').addEventListener('change', filterLogs);
+document.getElementById('categoryFilter').addEventListener('change', filterLogs);
+
+function filterLogs() {
+    const levelFilter = document.getElementById('levelFilter').value;
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const rows = document.querySelectorAll('#logTableBody tr');
+    
+    rows.forEach(row => {
+        const level = row.dataset.level;
+        const category = row.dataset.category;
+        
+        let show = true;
+        if (levelFilter && level !== levelFilter) show = false;
+        if (categoryFilter && category !== categoryFilter) show = false;
+        
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// 로그 새로고침
+function refreshLogs() {
+    location.reload();
+}
+
+// 로그 상세 보기
+function showLogDetails(logId) {
+    const details = logDetails[logId];
+    if (!details) return;
+    
+    const content = document.getElementById('logDetailContent');
+    content.innerHTML = '';
+    
+    // JSON을 보기 좋게 표시
+    if (typeof details === 'object') {
+        content.innerHTML = `<pre class="bg-base-200 p-4 rounded overflow-x-auto">${JSON.stringify(details, null, 2)}</pre>`;
+    } else {
+        content.innerHTML = `<p>${details}</p>`;
+    }
+    
+    document.getElementById('logDetailModal').showModal();
+}
+
+// 실시간 로그 관련
+function togglePause() {
+    isPaused = !isPaused;
+    const btn = document.getElementById('pauseBtn');
+    btn.innerHTML = isPaused ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
+}
+
+function clearRealtimeLogs() {
+    document.getElementById('realtimeLogContainer').innerHTML = '';
+}
+
+// 실시간 로그 가져오기
+async function fetchRealtimeLogs() {
+    if (isPaused) return;
+    
+    try {
+        const response = await app.apiRequest('GET', '/logs/?limit=10&format=realtime');
+        const logs = response.results;
+        
+        const container = document.getElementById('realtimeLogContainer');
+        
+        logs.forEach(log => {
+            const logLine = document.createElement('div');
+            logLine.className = `mb-1 ${log.level === 'ERROR' ? 'text-error' : log.level === 'WARNING' ? 'text-warning' : ''}`;
+            
+            const timestamp = new Date(log.created_at).toLocaleTimeString('ko-KR', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            
+            logLine.innerHTML = `
+                <span class="opacity-50">[${timestamp}]</span>
+                <span class="badge badge-xs badge-${log.level === 'ERROR' ? 'error' : log.level === 'WARNING' ? 'warning' : 'ghost'}">${log.level}</span>
+                <span class="opacity-70">[${log.category}]</span>
+                <span>${log.message}</span>
+            `;
+            
+            container.appendChild(logLine);
+            
+            // 최대 100개 로그만 유지
+            while (container.children.length > 100) {
+                container.removeChild(container.firstChild);
+            }
+        });
+        
+        // 자동 스크롤
+        container.scrollTop = container.scrollHeight;
+        
+    } catch (error) {
+        console.error('Failed to fetch realtime logs:', error);
+    }
+}
+
+// 실시간 로그 시작
+function startRealtimeLogs() {
+    fetchRealtimeLogs();
+    realtimeLogInterval = setInterval(fetchRealtimeLogs, 2000);
+}
+
+// 실시간 로그 중지
+function stopRealtimeLogs() {
+    if (realtimeLogInterval) {
+        clearInterval(realtimeLogInterval);
+        realtimeLogInterval = null;
+    }
+}
+
+// 페이지 로드 시 실시간 로그 시작
+document.addEventListener('DOMContentLoaded', () => {
+    startRealtimeLogs();
+});
+
+// 페이지 언로드 시 실시간 로그 중지
+window.addEventListener('beforeunload', () => {
+    stopRealtimeLogs();
+});
+</script>
+{% endblock %}

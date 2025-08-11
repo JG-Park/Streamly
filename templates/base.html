@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Streamly - YouTube Live Monitor{% endblock %}</title>
+    
+    <!-- Tailwind CSS + DaisyUI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    
+    <!-- Icons (제거 - CDN CORS 문제) -->
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'streamly': '#1e40af',
+                        'streamly-light': '#3b82f6',
+                    },
+                    screens: {
+                        'xs': '475px',
+                        '3xl': '1600px',
+                    },
+                    spacing: {
+                        '18': '4.5rem',
+                        '88': '22rem',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Animation for activity items */
+        .activity-item {
+            transition: all 0.3s ease;
+        }
+        .activity-item:hover {
+            transform: translateY(-1px);
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+            .stats .stat-title {
+                font-size: 0.7rem !important;
+            }
+            .stats .stat-value {
+                font-size: 1.2rem !important;
+            }
+            .stats .stat-desc {
+                font-size: 0.6rem !important;
+            }
+        }
+        
+        /* Touch-friendly tap targets */
+        .btn, .menu a, .badge {
+            min-height: 44px;
+            min-width: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Prevent zoom on input focus on iOS */
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea,
+        select {
+            font-size: 16px;
+        }
+        
+        /* Safe area support for iOS */
+        .drawer-content {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-base-200 font-sans">
+    <div class="drawer lg:drawer-open min-h-screen">
+        <!-- Mobile drawer toggle -->
+        <input id="drawer-toggle" type="checkbox" class="drawer-toggle" />
+        
+        <!-- Page content -->
+        <div class="drawer-content flex flex-col">
+            <!-- Top navbar for mobile -->
+            <div class="navbar lg:hidden bg-base-100 border-b border-base-300">
+                <div class="navbar-start">
+                    <label for="drawer-toggle" class="btn btn-square btn-ghost">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </label>
+                </div>
+                <div class="navbar-center">
+                    <span class="text-xl font-bold text-streamly">🎬 Streamly</span>
+                </div>
+                <div class="navbar-end">
+                    <!-- Theme toggle -->
+                    <label class="btn btn-circle btn-ghost swap swap-rotate">
+                        <input type="checkbox" class="theme-controller" value="dark" />
+                        <svg class="swap-on w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M21.64 13a1 1 0 00-1.05-.14 8.05 8.05 0 01-3.37.73A8.15 8.15 0 019.08 5.49a8.59 8.59 0 01.25-2A1 1 0 008 2.36a10.14 10.14 0 1014 11.69 1 1 0 00-.36-1.05zm-9.5 6.69A8.14 8.14 0 017.08 5.22v.27A10.15 10.15 0 0017.22 15.63a9.79 9.79 0 01-2.1 4.06 8.59 8.59 0 01-2.98 0z"/>
+                        </svg>
+                        <svg class="swap-off w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5.64 17l-.71.71a1 1 0 001.41 1.41l.71-.71A1 1 0 005.64 17zM5 12a1 1 0 00-1-1H3a1 1 0 000 2h1a1 1 0 001-1zm7-7a1 1 0 00-1-1V3a1 1 0 002 0v1a1 1 0 00-1 1zM5.64 7.05a1 1 0 00.7.29 1 1 0 00.71-.29 1 1 0 000-1.41l-.71-.71A1 1 0 004.93 6.34l.71.71zm12 .29a1 1 0 00.7-.29l.71-.71a1 1 0 10-1.41-1.41L17 5.64a1 1 0 000 1.41 1 1 0 00.64.29zM21 11h-1a1 1 0 000 2h1a1 1 0 000-2zm-9 8a1 1 0 00-1 1v1a1 1 0 002 0v-1a1 1 0 00-1-1zm6.36-2A1 1 0 0017 18.36l.71.71a1 1 0 001.41-1.41l-.71-.71zM12 6.5a5.5 5.5 0 105.5 5.5A5.51 5.51 0 0012 6.5zm0 9a3.5 3.5 0 113.5-3.5 3.5 3.5 0 01-3.5 3.5z"/>
+                        </svg>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <main class="flex-1 p-4 lg:p-8">
+                <!-- Messages/Alerts -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% elif message.tags == 'success' %}success{% else %}info{% endif %} mb-4 shadow-lg">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                            <span>{{ message }}</span>
+                            <div>
+                                <button class="btn btn-sm btn-ghost" onclick="this.parentElement.parentElement.remove()">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="drawer-side">
+            <label for="drawer-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
+            <aside class="min-h-full w-64 bg-base-100 border-r border-base-300">
+                <!-- Logo -->
+                <div class="sticky top-0 z-20 bg-base-100 bg-opacity-90 backdrop-blur border-b border-base-300">
+                    <div class="navbar">
+                        <div class="navbar-center">
+                            <span class="text-2xl font-bold bg-gradient-to-r from-streamly to-streamly-light bg-clip-text text-transparent">
+                                🎬 Streamly
+                            </span>
+                        </div>
+                        <!-- Theme toggle for desktop -->
+                        <div class="navbar-end lg:block hidden">
+                            <label class="btn btn-circle btn-ghost btn-sm swap swap-rotate">
+                                <input type="checkbox" class="theme-controller" value="dark" />
+                                <svg class="swap-on w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M21.64 13a1 1 0 00-1.05-.14 8.05 8.05 0 01-3.37.73A8.15 8.15 0 019.08 5.49a8.59 8.59 0 01.25-2A1 1 0 008 2.36a10.14 10.14 0 1014 11.69 1 1 0 00-.36-1.05zm-9.5 6.69A8.14 8.14 0 017.08 5.22v.27A10.15 10.15 0 0017.22 15.63a9.79 9.79 0 01-2.1 4.06 8.59 8.59 0 01-2.98 0z"/>
+                                </svg>
+                                <svg class="swap-off w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M5.64 17l-.71.71a1 1 0 001.41 1.41l.71-.71A1 1 0 005.64 17zM5 12a1 1 0 00-1-1H3a1 1 0 000 2h1a1 1 0 001-1zm7-7a1 1 0 00-1-1V3a1 1 0 002 0v1a1 1 0 00-1 1zM5.64 7.05a1 1 0 00.7.29 1 1 0 00.71-.29 1 1 0 000-1.41l-.71-.71A1 1 0 004.93 6.34l.71.71zm12 .29a1 1 0 00.7-.29l.71-.71a1 1 0 10-1.41-1.41L17 5.64a1 1 0 000 1.41 1 1 0 00.64.29zM21 11h-1a1 1 0 000 2h1a1 1 0 000-2zm-9 8a1 1 0 00-1 1v1a1 1 0 002 0v-1a1 1 0 00-1-1zm6.36-2A1 1 0 0017 18.36l.71.71a1 1 0 001.41-1.41l-.71-.71zM12 6.5a5.5 5.5 0 105.5 5.5A5.51 5.51 0 0012 6.5zm0 9a3.5 3.5 0 113.5-3.5 3.5 3.5 0 01-3.5 3.5z"/>
+                                </svg>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navigation Menu -->
+                <nav class="p-4">
+                    <ul class="menu menu-lg w-full">
+                        <li class="menu-title text-base-content/60">
+                            <span>메인</span>
+                        </li>
+                        <li>
+                            <a href="/dashboard/" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                대시보드
+                            </a>
+                        </li>
+                        
+                        <li class="menu-title text-base-content/60 mt-4">
+                            <span>관리</span>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:channels_channel_changelist' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                채널 관리
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:channels_livestream_changelist' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a2.5 2.5 0 000-5H9v5zm0 0H7.5a2.5 2.5 0 010-5H9v5z"/>
+                                </svg>
+                                라이브 스트림
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:downloads_download_changelist' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                다운로드
+                            </a>
+                        </li>
+                        
+                        <li class="menu-title text-base-content/60 mt-4">
+                            <span>시스템</span>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:core_settings_changelist' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                설정
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'admin:core_systemlog_changelist' %}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                시스템 로그
+                            </a>
+                        </li>
+                        
+                        <div class="divider"></div>
+                        
+                        <li>
+                            <a href="/api/" target="_blank" class="text-base-content/70">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                                </svg>
+                                API 문서
+                                <svg class="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                </svg>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/logout/" class="text-error hover:bg-error/10">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                                </svg>
+                                로그아웃
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+        </div>
+    </div>
+    
+    <script>
+        // Theme persistence
+        const themeController = document.querySelectorAll('.theme-controller');
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        
+        themeController.forEach(controller => {
+            controller.checked = currentTheme === 'dark';
+            controller.addEventListener('change', (e) => {
+                const theme = e.target.checked ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+                // Sync all theme controllers
+                themeController.forEach(c => c.checked = e.target.checked);
+            });
+        });
+        
+        // Set initial theme
+        document.documentElement.setAttribute('data-theme', currentTheme);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,423 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}채널 관리 - Streamly{% endblock %}
+
+{% block content %}
+<!-- 페이지 헤더 -->
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">채널 관리</h1>
+    <button onclick="openAddChannelModal()" class="btn btn-primary">
+        <i class="fas fa-plus mr-2"></i>
+        채널 추가
+    </button>
+</div>
+
+<!-- 채널 그리드 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for channel in channels %}
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <h2 class="card-title text-lg">{{ channel.name }}</h2>
+                    <p class="text-sm opacity-70">{{ channel.channel_id }}</p>
+                </div>
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+                        <li><a onclick="editChannel({{ channel.id }}, '{{ channel.name|escapejs }}', {{ channel.check_interval_minutes }})">
+                            <i class="fas fa-edit"></i> 편집
+                        </a></li>
+                        <li><a onclick="checkChannelNow({{ channel.id }})">
+                            <i class="fas fa-sync"></i> 즉시 체크
+                        </a></li>
+                        <li><a onclick="deleteChannel({{ channel.id }}, '{{ channel.name|escapejs }}')">
+                            <i class="fas fa-trash text-error"></i> 삭제
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="stats shadow mt-4">
+                <div class="stat place-items-center py-2">
+                    <div class="stat-title text-xs">스트림</div>
+                    <div class="stat-value text-lg">{{ channel.stream_count }}</div>
+                </div>
+                <div class="stat place-items-center py-2">
+                    <div class="stat-title text-xs">체크 주기</div>
+                    <div class="stat-value text-lg">{{ channel.check_interval_minutes }}분</div>
+                </div>
+            </div>
+            
+            <div class="form-control mt-4">
+                <label class="label cursor-pointer">
+                    <span class="label-text">활성화</span>
+                    <input type="checkbox" class="toggle toggle-primary" 
+                           {% if channel.is_active %}checked{% endif %}
+                           onchange="toggleChannel({{ channel.id }})">
+                </label>
+            </div>
+            
+            {% if channel.last_stream %}
+            <div class="mt-4 p-2 bg-base-200 rounded">
+                <p class="text-xs opacity-70">마지막 스트림</p>
+                <p class="text-sm truncate">{{ channel.last_stream.title }}</p>
+                <p class="text-xs opacity-50">{{ channel.last_stream.started_at|timesince }} 전</p>
+            </div>
+            {% endif %}
+            
+            <div class="card-actions justify-between mt-4">
+                <a href="{{ channel.url }}" target="_blank" class="btn btn-sm btn-ghost">
+                    <i class="fas fa-external-link-alt"></i>
+                    YouTube
+                </a>
+                <button onclick="checkChannelNow({{ channel.id }})" class="btn btn-sm btn-primary">
+                    <i class="fas fa-sync mr-1"></i>
+                    즉시 체크
+                </button>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12">
+        <i class="fas fa-tv text-6xl opacity-30 mb-4"></i>
+        <p class="text-xl opacity-70 mb-4">등록된 채널이 없습니다</p>
+        <button onclick="openAddChannelModal()" class="btn btn-primary">
+            <i class="fas fa-plus mr-2"></i>
+            첫 채널 추가하기
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 채널 추가 모달 -->
+<dialog id="addChannelModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">새 채널 추가</h3>
+        <form id="addChannelForm">
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text">YouTube 채널 URL</span>
+                </label>
+                <input type="url" id="channelUrl" class="input input-bordered" 
+                       placeholder="https://youtube.com/@channelname" required>
+                <label class="label">
+                    <span class="label-text-alt">예: https://youtube.com/@jgpkr</span>
+                </label>
+            </div>
+            
+            <div id="channelPreview" class="hidden mb-4 p-4 bg-base-200 rounded">
+                <p class="font-semibold" id="previewName"></p>
+                <p class="text-sm opacity-70" id="previewId"></p>
+            </div>
+            
+            <div class="modal-action">
+                <button type="button" onclick="closeAddChannelModal()" class="btn">취소</button>
+                <button type="submit" class="btn btn-primary">추가</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- 채널 삭제 확인 모달 -->
+<dialog id="deleteChannelModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">채널 삭제</h3>
+        <p>정말로 "<span id="deleteChannelName"></span>" 채널을 삭제하시겠습니까?</p>
+        <p class="text-sm opacity-70 mt-2">관련된 모든 스트림 기록도 함께 삭제됩니다.</p>
+        <div class="modal-action">
+            <button onclick="closeDeleteModal()" class="btn">취소</button>
+            <button onclick="confirmDelete()" class="btn btn-error">삭제</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- 채널 편집 모달 -->
+<dialog id="editChannelModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">채널 편집</h3>
+        <form id="editChannelForm">
+            <input type="hidden" id="editChannelId">
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text">채널 이름</span>
+                </label>
+                <input type="text" id="editChannelName" class="input input-bordered" required>
+            </div>
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text">체크 주기 (분)</span>
+                </label>
+                <input type="number" id="editCheckInterval" class="input input-bordered" min="1" max="60" required>
+            </div>
+            <div class="modal-action">
+                <button type="button" onclick="closeEditModal()" class="btn">취소</button>
+                <button type="submit" class="btn btn-primary">저장</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+let deleteChannelId = null;
+
+// 채널 추가 모달
+function openAddChannelModal() {
+    document.getElementById('addChannelModal').showModal();
+}
+
+function closeAddChannelModal() {
+    document.getElementById('addChannelModal').close();
+    document.getElementById('addChannelForm').reset();
+    document.getElementById('channelPreview').classList.add('hidden');
+}
+
+// 채널 URL 미리보기
+document.getElementById('channelUrl').addEventListener('input', async (e) => {
+    const url = e.target.value;
+    if (!url) {
+        document.getElementById('channelPreview').classList.add('hidden');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/v1/channel-preview/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': window.CSRF_TOKEN
+            },
+            body: JSON.stringify({ url: url })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('previewName').textContent = data.channel.name;
+            document.getElementById('previewId').textContent = data.channel.channel_id;
+            document.getElementById('channelPreview').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Preview error:', error);
+    }
+});
+
+// 채널 추가 폼 제출
+document.getElementById('addChannelForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const url = document.getElementById('channelUrl').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    // 로딩 상태 표시
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loading loading-spinner loading-sm mr-2"></span>처리 중...';
+    
+    try {
+        const response = await fetch('/api/v1/channels/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': window.CSRF_TOKEN
+            },
+            body: JSON.stringify({ url: url })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('success', '채널이 추가되었습니다.');
+            closeAddChannelModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('error', data.error || '채널 추가 실패');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    } catch (error) {
+        showToast('error', '네트워크 오류가 발생했습니다.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+
+// 채널 토글
+async function toggleChannel(channelId) {
+    try {
+        const response = await fetch(`/api/v1/channels/${channelId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': window.CSRF_TOKEN
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('success', data.message || '상태가 변경되었습니다.');
+        } else {
+            showToast('error', '상태 변경 실패');
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) {
+        showToast('error', '네트워크 오류가 발생했습니다.');
+    }
+}
+
+// 채널 즉시 체크
+async function checkChannelNow(channelId) {
+    try {
+        const response = await fetch(`/api/v1/channels/${channelId}/check_now/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': window.CSRF_TOKEN
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('success', data.message || '채널 체크를 시작했습니다.');
+        } else {
+            showToast('error', data.detail || '채널 체크 실패');
+        }
+    } catch (error) {
+        showToast('error', '네트워크 오류가 발생했습니다.');
+    }
+}
+
+// 채널 삭제
+function deleteChannel(channelId, channelName) {
+    deleteChannelId = channelId;
+    document.getElementById('deleteChannelName').textContent = channelName;
+    document.getElementById('deleteChannelModal').showModal();
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteChannelModal').close();
+    deleteChannelId = null;
+}
+
+async function confirmDelete() {
+    if (!deleteChannelId) return;
+    
+    try {
+        const response = await fetch(`/api/v1/channels/${deleteChannelId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': window.CSRF_TOKEN
+            }
+        });
+        
+        if (response.ok) {
+            showToast('success', '채널이 삭제되었습니다.');
+            closeDeleteModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('error', '채널 삭제 실패');
+        }
+    } catch (error) {
+        showToast('error', '네트워크 오류가 발생했습니다.');
+    }
+}
+
+// 채널 편집
+function editChannel(channelId, channelName, checkInterval) {
+    document.getElementById('editChannelId').value = channelId;
+    document.getElementById('editChannelName').value = channelName;
+    document.getElementById('editCheckInterval').value = checkInterval;
+    document.getElementById('editChannelModal').showModal();
+}
+
+function closeEditModal() {
+    document.getElementById('editChannelModal').close();
+}
+
+// 채널 편집 폼 제출
+document.getElementById('editChannelForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const channelId = document.getElementById('editChannelId').value;
+    const name = document.getElementById('editChannelName').value;
+    const checkInterval = document.getElementById('editCheckInterval').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    // 로딩 상태 표시
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loading loading-spinner loading-sm mr-2"></span>저장 중...';
+    
+    try {
+        const response = await fetch(`/api/v1/channels/${channelId}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': window.CSRF_TOKEN
+            },
+            body: JSON.stringify({ 
+                name: name
+            })
+        });
+        
+        if (response.ok) {
+            // 이름 수정 성공 후 체크 주기 업데이트
+            const intervalResponse = await fetch(`/api/v1/channels/${channelId}/update_check_interval/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': window.CSRF_TOKEN
+                },
+                body: JSON.stringify({ 
+                    check_interval_minutes: parseInt(checkInterval)
+                })
+            });
+            
+            if (intervalResponse.ok) {
+                showToast('success', '채널이 수정되었습니다.');
+                closeEditModal();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                const data = await intervalResponse.json();
+                showToast('warning', '이름은 수정되었으나 체크 주기 수정 실패: ' + (data.error || ''));
+                setTimeout(() => location.reload(), 2000);
+            }
+        } else {
+            const data = await response.json();
+            showToast('error', data.error || '채널 수정 실패');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    } catch (error) {
+        showToast('error', '네트워크 오류가 발생했습니다.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+
+// 토스트 메시지
+function showToast(type, message) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'error'}`;
+    toast.innerHTML = `<span>${message}</span>`;
+    
+    const container = document.getElementById('toast-container');
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

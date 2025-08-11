@@ -1,0 +1,235 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}라이브 스트림 - Streamly{% endblock %}
+
+{% block content %}
+<!-- 페이지 헤더 -->
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">라이브 스트림</h1>
+    <div class="flex gap-2">
+        <!-- 필터 -->
+        <select id="statusFilter" class="select select-bordered">
+            <option value="">모든 상태</option>
+            <option value="live">라이브</option>
+            <option value="ended">종료됨</option>
+            <option value="downloaded">다운로드됨</option>
+        </select>
+        <select id="channelFilter" class="select select-bordered">
+            <option value="">모든 채널</option>
+            {% for channel in channels %}
+            <option value="{{ channel.id }}">{{ channel.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- 현재 라이브 중인 스트림 -->
+{% if live_streams %}
+<div class="alert alert-error mb-6">
+    <i class="fas fa-circle animate-pulse mr-2"></i>
+    <span>{{ live_streams|length }}개의 라이브 스트림이 진행 중입니다.</span>
+</div>
+{% endif %}
+
+<!-- 스트림 테이블 -->
+<div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>상태</th>
+                        <th>채널</th>
+                        <th>제목</th>
+                        <th>시작 시간</th>
+                        <th>지속 시간</th>
+                        <th>액션</th>
+                    </tr>
+                </thead>
+                <tbody id="streamTableBody">
+                    {% for stream in streams %}
+                    <tr data-status="{{ stream.status }}" data-channel="{{ stream.channel.id }}">
+                        <td>
+                            <span class="badge badge-{% if stream.status == 'live' %}error{% elif stream.status == 'ended' %}warning{% else %}success{% endif %}">
+                                {% if stream.status == 'live' %}
+                                    <i class="fas fa-circle animate-pulse mr-1"></i>
+                                {% endif %}
+                                {{ stream.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <div>
+                                    <div class="font-bold">{{ stream.channel.name }}</div>
+                                    <div class="text-xs opacity-50">{{ stream.channel.channel_id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="max-w-md">
+                                <p class="truncate font-medium">{{ stream.title }}</p>
+                                <p class="text-xs opacity-50">{{ stream.video_id }}</p>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <p>{{ stream.started_at|date:"Y-m-d" }}</p>
+                                <p class="text-xs opacity-50">{{ stream.started_at|date:"H:i:s" }}</p>
+                            </div>
+                        </td>
+                        <td>
+                            {% if stream.ended_at %}
+                                {{ stream.duration }}
+                            {% elif stream.status == 'live' %}
+                                <span class="text-error">진행 중</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="flex gap-1">
+                                <a href="{{ stream.url }}" target="_blank" class="btn btn-xs btn-ghost">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                                {% if stream.status == 'ended' and not stream.downloads.exists %}
+                                <button onclick="downloadStream({{ stream.id }})" class="btn btn-xs btn-primary">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                {% endif %}
+                                {% if stream.downloads.exists %}
+                                <button onclick="viewDownloads({{ stream.id }})" class="btn btn-xs btn-success">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center opacity-50">스트림이 없습니다</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        {% if page_obj %}
+        <div class="join mt-4">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="join-item btn">«</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <button class="join-item btn btn-active">{{ num }}</button>
+                {% else %}
+                <a href="?page={{ num }}" class="join-item btn">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="join-item btn">»</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 다운로드 모달 -->
+<dialog id="downloadModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">스트림 다운로드</h3>
+        <p>이 스트림을 다운로드하시겠습니까?</p>
+        <div class="form-control mt-4">
+            <label class="label cursor-pointer">
+                <span class="label-text">고화질 (best)</span>
+                <input type="checkbox" id="downloadHigh" class="checkbox" checked>
+            </label>
+            <label class="label cursor-pointer">
+                <span class="label-text">저화질 (worst)</span>
+                <input type="checkbox" id="downloadLow" class="checkbox" checked>
+            </label>
+        </div>
+        <div class="modal-action">
+            <button onclick="closeDownloadModal()" class="btn">취소</button>
+            <button onclick="confirmDownload()" class="btn btn-primary">다운로드</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+let downloadStreamId = null;
+
+// 필터링
+document.getElementById('statusFilter').addEventListener('change', filterStreams);
+document.getElementById('channelFilter').addEventListener('change', filterStreams);
+
+function filterStreams() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const channelFilter = document.getElementById('channelFilter').value;
+    const rows = document.querySelectorAll('#streamTableBody tr');
+    
+    rows.forEach(row => {
+        const status = row.dataset.status;
+        const channel = row.dataset.channel;
+        
+        let show = true;
+        if (statusFilter && status !== statusFilter) show = false;
+        if (channelFilter && channel !== channelFilter) show = false;
+        
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// 스트림 다운로드
+function downloadStream(streamId) {
+    downloadStreamId = streamId;
+    document.getElementById('downloadModal').showModal();
+}
+
+function closeDownloadModal() {
+    document.getElementById('downloadModal').close();
+    downloadStreamId = null;
+}
+
+async function confirmDownload() {
+    if (!downloadStreamId) return;
+    
+    const downloadHigh = document.getElementById('downloadHigh').checked;
+    const downloadLow = document.getElementById('downloadLow').checked;
+    
+    if (!downloadHigh && !downloadLow) {
+        showToast('error', '최소 하나의 품질을 선택해주세요.');
+        return;
+    }
+    
+    try {
+        // 다운로드 요청 (API 구현 필요)
+        const response = await app.apiRequest('POST', `/streams/${downloadStreamId}/download/`, {
+            high_quality: downloadHigh,
+            low_quality: downloadLow
+        });
+        
+        showToast('success', '다운로드가 시작되었습니다.');
+        closeDownloadModal();
+        setTimeout(() => location.reload(), 2000);
+    } catch (error) {
+        showToast('error', '다운로드 시작 실패');
+    }
+}
+
+// 다운로드 보기
+function viewDownloads(streamId) {
+    window.location.href = `/dashboard/downloads/?stream=${streamId}`;
+}
+
+// 30초마다 새로고침 (라이브 스트림이 있을 때만)
+{% if live_streams %}
+setTimeout(() => location.reload(), 30000);
+{% endif %}
+</script>
+{% endblock %}

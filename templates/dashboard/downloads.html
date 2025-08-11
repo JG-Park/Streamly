@@ -1,0 +1,325 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}다운로드 - Streamly{% endblock %}
+
+{% block content %}
+<!-- 페이지 헤더 -->
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">다운로드</h1>
+    <div class="flex gap-2">
+        <!-- 필터 -->
+        <select id="statusFilter" class="select select-bordered">
+            <option value="">모든 상태</option>
+            <option value="pending">대기 중</option>
+            <option value="downloading">다운로드 중</option>
+            <option value="completed">완료됨</option>
+            <option value="failed">실패</option>
+        </select>
+        <select id="qualityFilter" class="select select-bordered">
+            <option value="">모든 품질</option>
+            <option value="best">고화질</option>
+            <option value="worst">저화질</option>
+        </select>
+    </div>
+</div>
+
+<!-- 다운로드 통계 -->
+<div class="stats shadow w-full mb-6">
+    <div class="stat">
+        <div class="stat-title">전체 다운로드</div>
+        <div class="stat-value">{{ stats.total }}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-title">완료됨</div>
+        <div class="stat-value text-success">{{ stats.completed }}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-title">대기 중</div>
+        <div class="stat-value text-warning">{{ stats.pending }}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-title">실패</div>
+        <div class="stat-value text-error">{{ stats.failed }}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-title">저장 공간</div>
+        <div class="stat-value text-info">{{ stats.total_size }}</div>
+    </div>
+</div>
+
+<!-- 다운로드 목록 -->
+<div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>상태</th>
+                        <th>채널</th>
+                        <th>제목</th>
+                        <th>품질</th>
+                        <th>크기</th>
+                        <th>다운로드 시간</th>
+                        <th>액션</th>
+                    </tr>
+                </thead>
+                <tbody id="downloadTableBody">
+                    {% for download in downloads %}
+                    <tr data-status="{{ download.status }}" data-quality="{{ download.quality }}">
+                        <td>
+                            <span class="badge badge-{% if download.status == 'completed' %}success{% elif download.status == 'downloading' %}info{% elif download.status == 'pending' %}warning{% else %}error{% endif %}">
+                                {% if download.status == 'downloading' %}
+                                    <span class="loading loading-spinner loading-xs mr-1"></span>
+                                {% endif %}
+                                {{ download.get_status_display }}
+                            </span>
+                            {% if download.progress %}
+                            <div class="mt-1">
+                                <progress class="progress progress-primary w-20" value="{{ download.progress }}" max="100"></progress>
+                                <span class="text-xs">{{ download.progress }}%</span>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div>
+                                <div class="font-bold">{{ download.live_stream.channel.name }}</div>
+                                <div class="text-xs opacity-50">{{ download.live_stream.channel.channel_id }}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="max-w-md">
+                                <p class="truncate font-medium">{{ download.live_stream.title }}</p>
+                                <p class="text-xs opacity-50">{{ download.live_stream.video_id }}</p>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-{% if download.quality == 'best' %}primary{% else %}secondary{% endif %}">
+                                {{ download.get_quality_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if download.file_size %}
+                                {{ download.file_size_display }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if download.completed_at %}
+                                <div>
+                                    <p>{{ download.completed_at|date:"Y-m-d" }}</p>
+                                    <p class="text-xs opacity-50">{{ download.completed_at|date:"H:i:s" }}</p>
+                                </div>
+                            {% else %}
+                                <p class="text-xs opacity-50">{{ download.created_at|timesince }} 전</p>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="flex gap-1">
+                                {% if download.status == 'completed' %}
+                                <button onclick="playVideo({{ download.id }})" class="btn btn-xs btn-ghost">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button onclick="deleteDownload({{ download.id }})" class="btn btn-xs btn-error">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% elif download.status == 'failed' %}
+                                <button onclick="retryDownload({{ download.id }})" class="btn btn-xs btn-warning">
+                                    <i class="fas fa-redo"></i>
+                                </button>
+                                <button onclick="forceDownload({{ download.id }})" class="btn btn-xs btn-info" title="강제 다운로드">
+                                    <i class="fas fa-bolt"></i>
+                                </button>
+                                {% if download.error_message %}
+                                <button onclick="showError({{ download.id }})" class="btn btn-xs btn-ghost">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                                {% endif %}
+                                {% elif download.status == 'downloading' %}
+                                <button onclick="cancelDownload({{ download.id }})" class="btn btn-xs btn-error">
+                                    <i class="fas fa-stop"></i>
+                                </button>
+                                {% elif download.status == 'pending' %}
+                                <button onclick="forceDownload({{ download.id }})" class="btn btn-xs btn-primary" title="강제 다운로드">
+                                    <i class="fas fa-play-circle"></i> 시작
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center opacity-50">다운로드가 없습니다</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        {% if page_obj %}
+        <div class="join mt-4">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="join-item btn">«</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <button class="join-item btn btn-active">{{ num }}</button>
+                {% else %}
+                <a href="?page={{ num }}" class="join-item btn">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="join-item btn">»</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 에러 메시지 모달 -->
+<dialog id="errorModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">다운로드 오류</h3>
+        <pre id="errorMessage" class="bg-base-200 p-4 rounded overflow-x-auto text-xs"></pre>
+        <div class="modal-action">
+            <button onclick="document.getElementById('errorModal').close()" class="btn">닫기</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- 삭제 확인 모달 -->
+<dialog id="deleteModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">다운로드 삭제</h3>
+        <p>이 다운로드를 삭제하시겠습니까? 파일도 함께 삭제됩니다.</p>
+        <div class="modal-action">
+            <button onclick="closeDeleteModal()" class="btn">취소</button>
+            <button onclick="confirmDelete()" class="btn btn-error">삭제</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+let deleteDownloadId = null;
+const errorMessages = {};
+
+// 에러 메시지 저장
+{% for download in downloads %}
+    {% if download.error_message %}
+    errorMessages[{{ download.id }}] = {{ download.error_message|escapejs|safe }};
+    {% endif %}
+{% endfor %}
+
+// 필터링
+document.getElementById('statusFilter').addEventListener('change', filterDownloads);
+document.getElementById('qualityFilter').addEventListener('change', filterDownloads);
+
+function filterDownloads() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const qualityFilter = document.getElementById('qualityFilter').value;
+    const rows = document.querySelectorAll('#downloadTableBody tr');
+    
+    rows.forEach(row => {
+        const status = row.dataset.status;
+        const quality = row.dataset.quality;
+        
+        let show = true;
+        if (statusFilter && status !== statusFilter) show = false;
+        if (qualityFilter && quality !== qualityFilter) show = false;
+        
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// 다운로드 재시도
+async function retryDownload(downloadId) {
+    try {
+        const response = await app.apiRequest('POST', `/downloads/${downloadId}/retry_download/`);
+        showToast('success', '다운로드를 재시도합니다.');
+        setTimeout(() => location.reload(), 2000);
+    } catch (error) {
+        showToast('error', '재시도 실패');
+    }
+}
+
+// 강제 다운로드
+async function forceDownload(downloadId) {
+    if (!confirm('강제로 다운로드를 시작하시겠습니까?')) return;
+    
+    try {
+        showToast('info', '강제 다운로드 시작 중...');
+        const response = await app.apiRequest('POST', `/downloads/${downloadId}/force_download/`);
+        showToast('success', '강제 다운로드가 시작되었습니다.');
+        setTimeout(() => location.reload(), 2000);
+    } catch (error) {
+        showToast('error', '강제 다운로드 실패');
+    }
+}
+
+// 다운로드 취소
+async function cancelDownload(downloadId) {
+    if (!confirm('다운로드를 취소하시겠습니까?')) return;
+    
+    try {
+        const response = await app.apiRequest('POST', `/downloads/${downloadId}/cancel/`);
+        showToast('success', '다운로드가 취소되었습니다.');
+        setTimeout(() => location.reload(), 1000);
+    } catch (error) {
+        showToast('error', '취소 실패');
+    }
+}
+
+// 다운로드 삭제
+function deleteDownload(downloadId) {
+    deleteDownloadId = downloadId;
+    document.getElementById('deleteModal').showModal();
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').close();
+    deleteDownloadId = null;
+}
+
+async function confirmDelete() {
+    if (!deleteDownloadId) return;
+    
+    try {
+        const response = await app.apiRequest('DELETE', `/downloads/${deleteDownloadId}/delete_file/`);
+        showToast('success', '다운로드가 삭제되었습니다.');
+        closeDeleteModal();
+        setTimeout(() => location.reload(), 1000);
+    } catch (error) {
+        showToast('error', '삭제 실패');
+    }
+}
+
+// 에러 메시지 표시
+function showError(downloadId) {
+    const errorMessage = errorMessages[downloadId];
+    if (errorMessage) {
+        document.getElementById('errorMessage').textContent = errorMessage;
+        document.getElementById('errorModal').showModal();
+    }
+}
+
+// 비디오 재생 (외부 플레이어 또는 다운로드)
+function playVideo(downloadId) {
+    // 실제 구현에서는 파일 경로를 반환하는 API 필요
+    window.open(`/api/v1/downloads/${downloadId}/file/`, '_blank');
+}
+
+// 5초마다 새로고침 (다운로드 중인 항목이 있을 때)
+{% if downloading_count > 0 %}
+setTimeout(() => location.reload(), 5000);
+{% endif %}
+</script>
+{% endblock %}

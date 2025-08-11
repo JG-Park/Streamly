@@ -1,0 +1,215 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}대시보드 - Streamly{% endblock %}
+
+{% block content %}
+<!-- 페이지 헤더 -->
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">대시보드</h1>
+    <div class="text-sm opacity-70">
+        마지막 업데이트: {% now "Y-m-d H:i:s" %}
+    </div>
+</div>
+
+<!-- 통계 카드 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="stats shadow">
+        <div class="stat">
+            <div class="stat-figure text-primary">
+                <i class="fas fa-tv text-3xl"></i>
+            </div>
+            <div class="stat-title">전체 채널</div>
+            <div class="stat-value text-primary">{{ stats.total_channels }}</div>
+            <div class="stat-desc">활성: {{ stats.active_channels }}개</div>
+        </div>
+    </div>
+    
+    <div class="stats shadow">
+        <div class="stat">
+            <div class="stat-figure text-secondary">
+                <i class="fas fa-broadcast-tower text-3xl"></i>
+            </div>
+            <div class="stat-title">라이브 스트림</div>
+            <div class="stat-value text-secondary">{{ stats.live_streams }}</div>
+            <div class="stat-desc">전체: {{ stats.total_streams }}개</div>
+        </div>
+    </div>
+    
+    <div class="stats shadow">
+        <div class="stat">
+            <div class="stat-figure text-success">
+                <i class="fas fa-download text-3xl"></i>
+            </div>
+            <div class="stat-title">다운로드</div>
+            <div class="stat-value text-success">{{ stats.completed }}</div>
+            <div class="stat-desc">대기: {{ stats.pending }}개</div>
+        </div>
+    </div>
+    
+    <div class="stats shadow">
+        <div class="stat">
+            <div class="stat-figure text-warning">
+                <i class="fas fa-hdd text-3xl"></i>
+            </div>
+            <div class="stat-title">저장 공간</div>
+            <div class="stat-value text-warning">{{ stats.total_storage_used }}</div>
+            <div class="stat-desc">사용 중</div>
+        </div>
+    </div>
+</div>
+
+<!-- 현재 라이브 중인 스트림 -->
+{% if live_streams %}
+<div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body">
+        <h2 class="card-title text-error">
+            <i class="fas fa-circle text-error animate-pulse"></i>
+            현재 라이브 중
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for stream in live_streams %}
+            <div class="card bg-base-200 compact">
+                <div class="card-body">
+                    <h3 class="font-semibold truncate">{{ stream.title }}</h3>
+                    <p class="text-sm opacity-70">{{ stream.channel.name }}</p>
+                    <div class="card-actions justify-end mt-2">
+                        <a href="{{ stream.url }}" target="_blank" class="btn btn-sm btn-primary">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 최근 스트림 -->
+    <div class="lg:col-span-2">
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-history"></i>
+                    최근 스트림
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra">
+                        <thead>
+                            <tr>
+                                <th>채널</th>
+                                <th>제목</th>
+                                <th>상태</th>
+                                <th>시작 시간</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stream in recent_streams %}
+                            <tr>
+                                <td>{{ stream.channel.name }}</td>
+                                <td class="truncate max-w-xs">{{ stream.title }}</td>
+                                <td>
+                                    <span class="badge badge-{% if stream.status == 'live' %}error{% elif stream.status == 'ended' %}warning{% else %}success{% endif %}">
+                                        {{ stream.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ stream.started_at|date:"m/d H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center opacity-50">최근 스트림이 없습니다</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 활성 채널 -->
+    <div>
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-check-circle"></i>
+                    활성 채널
+                </h2>
+                <div class="space-y-2">
+                    {% for channel in active_channels %}
+                    <div class="flex items-center justify-between p-2 rounded hover:bg-base-200">
+                        <div class="flex-1">
+                            <p class="font-medium">{{ channel.name }}</p>
+                            <p class="text-xs opacity-70">
+                                {% if channel.last_checked %}
+                                    {{ channel.last_checked|timesince }} 전 확인
+                                {% else %}
+                                    아직 확인 안함
+                                {% endif %}
+                            </p>
+                        </div>
+                        <button class="btn btn-xs btn-ghost" onclick="checkChannelNow({{ channel.id }})">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
+                    {% empty %}
+                    <p class="text-center opacity-50">활성 채널이 없습니다</p>
+                    {% endfor %}
+                </div>
+                {% if active_channels.count > 10 %}
+                <div class="card-actions justify-end mt-4">
+                    <a href="{% url 'dashboard:channels' %}" class="btn btn-sm btn-primary">
+                        모두 보기
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 채널 즉시 체크
+async function checkChannelNow(channelId) {
+    try {
+        const response = await fetch(`/api/v1/channels/${channelId}/check_now/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': window.CSRF_TOKEN
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('success', data.message || '채널 체크를 시작했습니다.');
+        } else {
+            showToast('error', data.detail || '채널 체크 실패');
+        }
+    } catch (error) {
+        showToast('error', '네트워크 오류가 발생했습니다.');
+    }
+}
+
+// 토스트 메시지
+function showToast(type, message) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'error'}`;
+    toast.innerHTML = `<span>${message}</span>`;
+    
+    const container = document.getElementById('toast-container');
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// 30초마다 페이지 새로고침
+setTimeout(() => {
+    location.reload();
+}, 30000);
+</script>
+{% endblock %}
