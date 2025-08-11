@@ -1,0 +1,140 @@
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: streamly
+      POSTGRES_USER: streamly
+      POSTGRES_PASSWORD: streamly_password_2025
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U streamly -d streamly"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - streamly_network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - streamly_network
+
+  web:
+    build: .
+    ports:
+      - "40732:40732"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=streamly-production-secret-key-2025-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.10,streamly.jgplabs.kr
+      - DATABASE_URL=postgresql://streamly:streamly_password_2025@db:5432/streamly
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DOWNLOAD_PATH=/app/downloads
+      - RETENTION_DAYS=14
+      - CHECK_INTERVAL_MINUTES=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-AIzaSyAZHic3CBx8SBZ5UG_pKK3KNW_Sx-KRcvY}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-AIzaSyAZHic3CBx8SBZ5UG_pKK3KNW_Sx-KRcvY}
+      - CSRF_TRUSTED_ORIGINS=https://streamly.jgplabs.kr,http://192.168.0.10:40732
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - streamly_network
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    command: celery -A streamly worker --loglevel=info --concurrency=4
+    volumes:
+      - ./downloads:/app/downloads
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=streamly-production-secret-key-2025-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.10,streamly.jgplabs.kr
+      - DATABASE_URL=postgresql://streamly:streamly_password_2025@db:5432/streamly
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DOWNLOAD_PATH=/app/downloads
+      - RETENTION_DAYS=14
+      - CHECK_INTERVAL_MINUTES=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-AIzaSyAZHic3CBx8SBZ5UG_pKK3KNW_Sx-KRcvY}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - streamly_network
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    command: celery -A streamly beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - ./downloads:/app/downloads
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=streamly-production-secret-key-2025-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.10,streamly.jgplabs.kr
+      - DATABASE_URL=postgresql://streamly:streamly_password_2025@db:5432/streamly
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DOWNLOAD_PATH=/app/downloads
+      - RETENTION_DAYS=14
+      - CHECK_INTERVAL_MINUTES=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-AIzaSyAZHic3CBx8SBZ5UG_pKK3KNW_Sx-KRcvY}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - streamly_network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static_collected:/app/static:ro
+    depends_on:
+      - web
+    networks:
+      - streamly_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  streamly_network:
+    driver: bridge

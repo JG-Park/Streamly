@@ -1,0 +1,116 @@
+# Development Docker Compose
+# Usage: docker-compose -f docker-compose.dev.yml up
+
+services:
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: streamly_dev
+      POSTGRES_USER: streamly_dev
+      POSTGRES_PASSWORD: streamly_dev_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U streamly_dev -d streamly_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "40732:40732"
+    volumes:
+      - .:/app
+      - ./downloads:/app/downloads
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.10
+      - DATABASE_URL=postgresql://streamly_dev:streamly_dev_password@db:5432/streamly_dev
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DOWNLOAD_PATH=/app/downloads
+      - RETENTION_DAYS=1
+      - CHECK_INTERVAL_MINUTES=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python manage.py runserver 0.0.0.0:40732
+
+  celery_worker:
+    build: .
+    volumes:
+      - .:/app
+      - ./downloads:/app/downloads
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.10
+      - DATABASE_URL=postgresql://streamly_dev:streamly_dev_password@db:5432/streamly_dev
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DOWNLOAD_PATH=/app/downloads
+      - RETENTION_DAYS=1
+      - CHECK_INTERVAL_MINUTES=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A streamly worker --loglevel=debug --concurrency=2
+
+  celery_beat:
+    build: .
+    volumes:
+      - .:/app
+      - ./downloads:/app/downloads
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.10
+      - DATABASE_URL=postgresql://streamly_dev:streamly_dev_password@db:5432/streamly_dev
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DOWNLOAD_PATH=/app/downloads
+      - RETENTION_DAYS=1
+      - CHECK_INTERVAL_MINUTES=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A streamly beat --loglevel=debug --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
