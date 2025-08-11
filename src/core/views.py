@@ -196,18 +196,29 @@ def downloads_page(request):
     
     # 파일 크기 표시를 위한 리스트 생성
     downloads_with_size = []
+    has_high_quality = False
+    has_low_quality = False
+    
     for download in page_obj.object_list:
         download_data = {
             'download': download,
             'file_size_display': format_file_size(download.file_size) if download.file_size else '-'
         }
         downloads_with_size.append(download_data)
+        
+        # 품질별 존재 여부 체크
+        if download.quality in ['best', 'high']:
+            has_high_quality = True
+        elif download.quality in ['worst', 'low']:
+            has_low_quality = True
     
     context = {
         'downloads': downloads_with_size,
         'page_obj': page_obj,
         'stats': stats,
         'downloading_count': stats['downloading'],
+        'has_high_quality': has_high_quality,
+        'has_low_quality': has_low_quality,
         'page_title': '다운로드 관리',
     }
     
