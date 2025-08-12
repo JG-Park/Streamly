@@ -128,6 +128,19 @@ services:
       - streamly_network
     restart: unless-stopped
 
+  adminer:
+    image: adminer:4.8.1
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+      ADMINER_DESIGN: pepa-linha
+    depends_on:
+      - db
+    networks:
+      - streamly_network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

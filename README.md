@@ -233,6 +233,17 @@ celery -A streamly worker --loglevel=info --concurrency=4
 celery -A streamly beat --loglevel=info
 ```
 
+## 🔧 관리 도구
+
+### Adminer (데이터베이스 관리)
+Docker Compose로 실행 시 Adminer가 함께 실행됩니다.
+
+- **접속 주소**: http://localhost:40732/adminer/
+- **서버**: `db` (Docker 내부) 또는 `localhost` (로컬)
+- **사용자명**: `streamly`
+- **비밀번호**: `streamly123`
+- **데이터베이스**: `streamly`
+
 ## 🔒 보안 고려사항
 
 - Django의 기본 보안 설정 활용
@@ -240,6 +251,7 @@ celery -A streamly beat --loglevel=info
 - CSRF 보호 활성화
 - 파일 경로 안전성 검증
 - API 인증 필수
+- Adminer는 프로덕션에서 비활성화 권장
 
 ## 📋 요구사항
 
