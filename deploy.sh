@@ -22,15 +22,15 @@ chmod 755 logs
 
 # Docker 이미지 빌드
 echo "🔨 Docker 이미지 빌드 중..."
-docker-compose build
+docker compose build
 
 # 기존 컨테이너 중지 및 제거
 echo "🛑 기존 컨테이너 중지 중..."
-docker-compose down
+docker compose down
 
 # 컨테이너 시작
 echo "🚀 컨테이너 시작 중..."
-docker-compose up -d
+docker compose up -d
 
 # 잠시 대기 (DB 연결 대기)
 echo "⏳ 서비스 초기화 대기 중..."
@@ -38,20 +38,20 @@ sleep 10
 
 # Static 파일 수집 (강제 실행)
 echo "📦 Static 파일 수집 중..."
-docker-compose exec -T web python /app/src/manage.py collectstatic --noinput --clear
+docker compose exec -T web python /app/src/manage.py collectstatic --noinput --clear
 
 # nginx 재시작
 echo "🔄 Nginx 재시작 중..."
-docker-compose restart nginx
+docker compose restart nginx
 
 # 상태 확인
 echo "✅ 배포 완료! 서비스 상태:"
-docker-compose ps
+docker compose ps
 
 echo ""
 echo "📌 다음 URL에서 서비스를 확인할 수 있습니다:"
 echo "   https://streamly.jgplabs.kr"
 echo ""
 echo "🔍 로그 확인:"
-echo "   docker-compose logs -f web"
-echo "   docker-compose logs -f celery_worker"
+echo "   docker compose logs -f web"
+echo "   docker compose logs -f celery_worker"
