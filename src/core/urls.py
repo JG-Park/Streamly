@@ -19,6 +19,9 @@ urlpatterns = [
     # 다운로드 관리
     path('downloads/', views.downloads_page, name='downloads'),
     
+    # YouTube 수동 다운로드
+    path('youtube-download/', views.manual_download_page, name='manual_download'),
+    
     # 설정
     path('settings/', views.settings_page, name='settings'),
     

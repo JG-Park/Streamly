@@ -53,6 +53,9 @@
                 <li><a href="{% url 'dashboard:downloads' %}" class="{% if request.resolver_match.url_name == 'downloads' %}active{% endif %}">
                     <i class="fas fa-download"></i> 다운로드
                 </a></li>
+                <li><a href="{% url 'dashboard:manual_download' %}" class="{% if request.resolver_match.url_name == 'manual_download' %}active{% endif %}">
+                    <i class="fab fa-youtube"></i> YouTube
+                </a></li>
                 <li><a href="{% url 'dashboard:settings' %}" class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
                     <i class="fas fa-cog"></i> 설정
                 </a></li>

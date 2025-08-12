@@ -1,0 +1,497 @@
+{% extends 'base/layout.html' %}
+
+{% block title %}YouTube 다운로드 - Streamly{% endblock %}
+
+{% block content %}
+<!-- 페이지 헤더 -->
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">YouTube 다운로드</h1>
+</div>
+
+<!-- URL 입력 섹션 -->
+<div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body">
+        <h2 class="card-title mb-4">영상 URL 입력</h2>
+        <div class="flex gap-2">
+            <input 
+                type="text" 
+                id="videoUrl" 
+                placeholder="YouTube URL을 입력하세요 (예: https://www.youtube.com/watch?v=...)" 
+                class="input input-bordered flex-1"
+            />
+            <button onclick="extractVideoInfo()" class="btn btn-primary">
+                <i class="fas fa-search mr-2"></i>정보 추출
+            </button>
+        </div>
+        <div id="extractError" class="alert alert-error mt-2 hidden">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="extractErrorMsg"></span>
+        </div>
+    </div>
+</div>
+
+<!-- 영상 정보 표시 섹션 (초기에는 숨김) -->
+<div id="videoInfoSection" class="card bg-base-100 shadow-xl mb-6 hidden">
+    <div class="card-body">
+        <h2 class="card-title mb-4">영상 정보</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 썸네일 -->
+            <div>
+                <img id="videoThumbnail" src="" alt="Video thumbnail" class="rounded-lg w-full">
+            </div>
+            <!-- 영상 정보 -->
+            <div>
+                <h3 id="videoTitle" class="font-bold text-lg mb-2"></h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-user"></i>
+                        <span id="videoChannel"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-clock"></i>
+                        <span id="videoDuration"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-eye"></i>
+                        <span id="videoViews"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-calendar"></i>
+                        <span id="videoUploadDate"></span>
+                    </div>
+                </div>
+                
+                <!-- 다운로드 옵션 -->
+                <div class="divider"></div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="label">
+                            <span class="label-text">다운로드 방식</span>
+                        </label>
+                        <select id="downloadType" class="select select-bordered w-full" onchange="toggleDownloadOptions()">
+                            <option value="server">서버에 저장</option>
+                            <option value="direct">직접 다운로드 (CDN URL)</option>
+                        </select>
+                    </div>
+                    
+                    <div id="qualityOptions">
+                        <label class="label">
+                            <span class="label-text">화질 선택</span>
+                        </label>
+                        <select id="videoQuality" class="select select-bordered w-full">
+                            <option value="best">최고 화질 (추천)</option>
+                        </select>
+                    </div>
+                    
+                    <button onclick="startDownload()" class="btn btn-primary w-full">
+                        <i class="fas fa-download mr-2"></i>다운로드 시작
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 다운로드 진행 상태 (초기에는 숨김) -->
+<div id="downloadProgress" class="alert alert-info mb-6 hidden">
+    <span class="loading loading-spinner"></span>
+    <div>
+        <h3 class="font-bold">다운로드 중...</h3>
+        <div class="text-sm" id="progressText">준비 중입니다.</div>
+        <progress id="progressBar" class="progress progress-primary w-full mt-2 hidden" value="0" max="100"></progress>
+    </div>
+</div>
+
+<!-- CDN URL 결과 (초기에는 숨김) -->
+<div id="directUrlResult" class="alert alert-success mb-6 hidden">
+    <i class="fas fa-check-circle"></i>
+    <div>
+        <h3 class="font-bold">다운로드 링크가 준비되었습니다!</h3>
+        <p class="text-sm mb-2">아래 버튼을 클릭하여 다운로드하세요. (6시간 동안 유효)</p>
+        <a id="directDownloadBtn" href="" target="_blank" class="btn btn-sm btn-outline">
+            <i class="fas fa-external-link-alt mr-2"></i>다운로드
+        </a>
+    </div>
+</div>
+
+<!-- 다운로드 목록 -->
+<div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title">다운로드 목록</h2>
+            <button onclick="refreshDownloadList()" class="btn btn-ghost btn-sm">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>썸네일</th>
+                        <th>제목</th>
+                        <th>상태</th>
+                        <th>진행률</th>
+                        <th>크기</th>
+                        <th>액션</th>
+                    </tr>
+                </thead>
+                <tbody id="downloadListBody">
+                    <tr>
+                        <td colspan="6" class="text-center opacity-50">다운로드 목록을 불러오는 중...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentVideoInfo = null;
+let refreshInterval = null;
+
+// 영상 정보 추출
+async function extractVideoInfo() {
+    const url = document.getElementById('videoUrl').value.trim();
+    if (!url) {
+        showError('URL을 입력해주세요.');
+        return;
+    }
+    
+    // UI 초기화
+    hideError();
+    document.getElementById('videoInfoSection').classList.add('hidden');
+    document.getElementById('downloadProgress').classList.add('hidden');
+    document.getElementById('directUrlResult').classList.add('hidden');
+    
+    // 로딩 표시
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading loading-spinner"></span> 추출 중...';
+    
+    try {
+        const response = await fetch('/api/v1/video/extract/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ url })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || '영상 정보 추출 실패');
+        }
+        
+        // 영상 정보 저장
+        currentVideoInfo = data;
+        currentVideoInfo.url = url;
+        
+        // 영상 정보 표시
+        displayVideoInfo(data);
+        
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search mr-2"></i>정보 추출';
+    }
+}
+
+// 영상 정보 표시
+function displayVideoInfo(info) {
+    document.getElementById('videoThumbnail').src = info.thumbnail || '';
+    document.getElementById('videoTitle').textContent = info.title || '';
+    document.getElementById('videoChannel').textContent = info.channel || '';
+    document.getElementById('videoDuration').textContent = info.duration_display || '';
+    document.getElementById('videoViews').textContent = info.view_count ? `${info.view_count.toLocaleString()} 회` : '';
+    document.getElementById('videoUploadDate').textContent = info.upload_date || '';
+    
+    // 화질 옵션 업데이트
+    const qualitySelect = document.getElementById('videoQuality');
+    qualitySelect.innerHTML = '<option value="best">최고 화질 (추천)</option>';
+    
+    if (info.formats && info.formats.length > 0) {
+        info.formats.forEach(format => {
+            if (format.resolution && format.resolution !== 'audio only') {
+                const option = document.createElement('option');
+                option.value = format.format_id;
+                option.textContent = `${format.resolution} - ${format.format_note || ''} (${format.filesize_display || 'Unknown'})`;
+                qualitySelect.appendChild(option);
+            }
+        });
+    }
+    
+    // 라이브 스트리밍 경고
+    if (info.is_live) {
+        showError(info.warning || '현재 라이브 스트리밍 중입니다.');
+    }
+    
+    document.getElementById('videoInfoSection').classList.remove('hidden');
+}
+
+// 다운로드 옵션 토글
+function toggleDownloadOptions() {
+    const downloadType = document.getElementById('downloadType').value;
+    const qualityOptions = document.getElementById('qualityOptions');
+    
+    if (downloadType === 'direct') {
+        qualityOptions.style.display = 'block';
+    } else {
+        qualityOptions.style.display = 'block';
+    }
+}
+
+// 다운로드 시작
+async function startDownload() {
+    if (!currentVideoInfo) return;
+    
+    const downloadType = document.getElementById('downloadType').value;
+    const quality = document.getElementById('videoQuality').value;
+    
+    // UI 초기화
+    document.getElementById('downloadProgress').classList.remove('hidden');
+    document.getElementById('directUrlResult').classList.add('hidden');
+    document.getElementById('progressText').textContent = '다운로드 준비 중...';
+    
+    try {
+        const response = await fetch('/api/v1/video/download/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                url: currentVideoInfo.url,
+                video_id: currentVideoInfo.video_id,
+                title: currentVideoInfo.title,
+                channel: currentVideoInfo.channel,
+                duration: currentVideoInfo.duration,
+                thumbnail: currentVideoInfo.thumbnail,
+                download_type: downloadType,
+                quality: quality,
+                format_id: quality !== 'best' ? quality : undefined,
+                resolution: currentVideoInfo.best_format?.resolution,
+                video_codec: currentVideoInfo.best_format?.vcodec,
+                audio_codec: currentVideoInfo.best_format?.acodec
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || '다운로드 시작 실패');
+        }
+        
+        if (downloadType === 'direct') {
+            // CDN URL 표시
+            document.getElementById('downloadProgress').classList.add('hidden');
+            document.getElementById('directUrlResult').classList.remove('hidden');
+            document.getElementById('directDownloadBtn').href = data.direct_url;
+        } else {
+            // 서버 다운로드 - 진행 상태 추적
+            document.getElementById('progressText').textContent = '서버에서 다운로드 중...';
+            document.getElementById('progressBar').classList.remove('hidden');
+            trackDownloadProgress(data.download_id);
+        }
+        
+        // 다운로드 목록 새로고침
+        refreshDownloadList();
+        
+    } catch (error) {
+        document.getElementById('downloadProgress').classList.add('hidden');
+        showError(error.message);
+    }
+}
+
+// 다운로드 진행 상황 추적
+async function trackDownloadProgress(downloadId) {
+    const checkProgress = async () => {
+        try {
+            const response = await fetch(`/api/v1/video/manual-downloads/${downloadId}/`);
+            const data = await response.json();
+            
+            if (data.status === 'completed') {
+                document.getElementById('progressBar').value = 100;
+                document.getElementById('progressText').textContent = '다운로드 완료!';
+                setTimeout(() => {
+                    document.getElementById('downloadProgress').classList.add('hidden');
+                }, 3000);
+                clearInterval(refreshInterval);
+                refreshDownloadList();
+            } else if (data.status === 'failed') {
+                document.getElementById('progressText').textContent = `다운로드 실패: ${data.error_message || '알 수 없는 오류'}`;
+                clearInterval(refreshInterval);
+            } else if (data.status === 'downloading') {
+                document.getElementById('progressBar').value = data.progress || 0;
+                document.getElementById('progressText').textContent = `다운로드 중... ${data.progress || 0}%`;
+            }
+        } catch (error) {
+            console.error('Progress check error:', error);
+        }
+    };
+    
+    refreshInterval = setInterval(checkProgress, 2000);
+    checkProgress(); // 즉시 한 번 실행
+}
+
+// 다운로드 목록 새로고침
+async function refreshDownloadList() {
+    try {
+        const response = await fetch('/api/v1/video/manual-downloads/');
+        const data = await response.json();
+        
+        const tbody = document.getElementById('downloadListBody');
+        
+        if (data.results && data.results.length > 0) {
+            tbody.innerHTML = data.results.map(item => `
+                <tr>
+                    <td>
+                        ${item.thumbnail_url ? 
+                            `<img src="${item.thumbnail_url}" class="w-20 h-12 object-cover rounded">` : 
+                            '<div class="w-20 h-12 bg-base-200 rounded"></div>'
+                        }
+                    </td>
+                    <td>
+                        <div class="max-w-xs">
+                            <p class="font-bold truncate">${item.title || 'Unknown'}</p>
+                            <p class="text-xs opacity-50">${item.channel_name || ''}</p>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-${getStatusBadgeClass(item.status)} badge-sm">
+                            ${item.status === 'downloading' ? '<span class="loading loading-spinner loading-xs mr-1"></span>' : ''}
+                            ${getStatusDisplay(item.status)}
+                        </span>
+                    </td>
+                    <td>
+                        ${item.status === 'downloading' ? 
+                            `<div class="flex items-center gap-2">
+                                <progress class="progress progress-primary w-20" value="${item.progress}" max="100"></progress>
+                                <span class="text-xs">${item.progress}%</span>
+                            </div>` :
+                            '-'
+                        }
+                    </td>
+                    <td>${item.file_size_display || '-'}</td>
+                    <td>
+                        <div class="flex gap-1">
+                            ${item.status === 'completed' && item.download_type === 'server' ? 
+                                `<button onclick="playVideo(${item.id})" class="btn btn-ghost btn-xs" title="재생">
+                                    <i class="fas fa-play"></i>
+                                </button>` : ''
+                            }
+                            ${item.status === 'completed' && item.direct_url ? 
+                                `<a href="${item.direct_url}" target="_blank" class="btn btn-ghost btn-xs" title="다운로드">
+                                    <i class="fas fa-download"></i>
+                                </a>` : ''
+                            }
+                            ${item.status === 'failed' ? 
+                                `<button onclick="retryDownload(${item.id})" class="btn btn-ghost btn-xs text-warning" title="재시도">
+                                    <i class="fas fa-redo"></i>
+                                </button>` : ''
+                            }
+                            <button onclick="deleteManualDownload(${item.id})" class="btn btn-ghost btn-xs text-error" title="삭제">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center opacity-50">다운로드가 없습니다</td></tr>';
+        }
+    } catch (error) {
+        console.error('Failed to refresh download list:', error);
+    }
+}
+
+// 수동 다운로드 삭제
+async function deleteManualDownload(id) {
+    if (!confirm('이 다운로드를 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/api/v1/video/manual-downloads/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        if (response.ok) {
+            refreshDownloadList();
+        }
+    } catch (error) {
+        console.error('Failed to delete download:', error);
+    }
+}
+
+// 상태 표시 헬퍼 함수
+function getStatusBadgeClass(status) {
+    const classes = {
+        'pending': 'warning',
+        'extracting': 'info',
+        'downloading': 'info',
+        'completed': 'success',
+        'failed': 'error'
+    };
+    return classes[status] || 'ghost';
+}
+
+function getStatusDisplay(status) {
+    const displays = {
+        'pending': '대기 중',
+        'extracting': '정보 추출 중',
+        'downloading': '다운로드 중',
+        'completed': '완료',
+        'failed': '실패'
+    };
+    return displays[status] || status;
+}
+
+// 에러 표시
+function showError(message) {
+    const errorDiv = document.getElementById('extractError');
+    const errorMsg = document.getElementById('extractErrorMsg');
+    errorMsg.textContent = message;
+    errorDiv.classList.remove('hidden');
+}
+
+function hideError() {
+    document.getElementById('extractError').classList.add('hidden');
+}
+
+// CSRF 토큰 가져오기
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 페이지 로드 시 다운로드 목록 로드
+document.addEventListener('DOMContentLoaded', () => {
+    refreshDownloadList();
+    
+    // 5초마다 목록 새로고침
+    setInterval(refreshDownloadList, 5000);
+});
+
+// 페이지 떠날 때 인터벌 정리
+window.addEventListener('beforeunload', () => {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+</script>
+{% endblock %}
