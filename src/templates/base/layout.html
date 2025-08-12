@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko" data-theme="dark">
 <head>
@@ -112,7 +113,7 @@
     </script>
     
     <!-- Base JavaScript -->
-    <script src="/static/js/app.js"></script>
+    <script src="{% static 'js/app.js' %}?v={{ 'now'|date:'YmdHis' }}"></script>
     
     {% block extra_js %}{% endblock %}
 </body>
