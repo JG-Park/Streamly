@@ -38,7 +38,7 @@ services:
       - ./downloads_files:/app/downloads
       - ./media:/app/media
       - ./logs:/app/logs
-      - ./static_collected:/app/static_collected
+      - ./static_collected:/app/src/static_collected
     working_dir: /app/src
     environment:
       - DEBUG=${DEBUG:-True}

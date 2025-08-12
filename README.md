@@ -239,10 +239,12 @@ celery -A streamly beat --loglevel=info
 Docker Compose로 실행 시 Adminer가 함께 실행됩니다.
 
 - **접속 주소**: http://localhost:40732/adminer/
-- **서버**: `db` (Docker 내부) 또는 `localhost` (로컬)
+- **서버**: `db` (Docker 내부)
 - **사용자명**: `streamly`
 - **비밀번호**: `streamly123`
 - **데이터베이스**: `streamly`
+
+**주의**: Nginx를 통해 역방향 프록시로 접근합니다. Docker Compose를 재시작하면 Nginx가 함께 실행됩니다.
 
 ## 🔒 보안 고려사항
 
