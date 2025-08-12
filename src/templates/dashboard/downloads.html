@@ -15,11 +15,6 @@
             <option value="completed">완료됨</option>
             <option value="failed">실패</option>
         </select>
-        <select id="qualityFilter" class="select select-bordered">
-            <option value="">모든 품질</option>
-            <option value="best">고화질</option>
-            <option value="worst">저화질</option>
-        </select>
     </div>
 </div>
 
@@ -47,256 +42,168 @@
     </div>
 </div>
 
-<!-- 품질별 그룹화된 다운로드 목록 -->
-<div class="space-y-6">
-    <!-- 고화질 다운로드 -->
-    <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-            <h2 class="card-title text-xl mb-4">
-                <i class="fas fa-video text-primary"></i>
-                고화질 다운로드
-            </h2>
-            <div class="overflow-x-auto">
-                <table class="table table-zebra">
-                    <thead>
-                        <tr>
-                            <th>상태</th>
-                            <th>채널</th>
-                            <th>제목</th>
-                            <th>해상도 / 코덱</th>
-                            <th>크기</th>
-                            <th>다운로드 시간</th>
-                            <th>액션</th>
-                        </tr>
-                    </thead>
-                    <tbody id="highQualityTableBody">
-                        {% for item in downloads %}
-                        {% if item.download.quality == 'best' or item.download.quality == 'high' %}
-                        <tr data-status="{{ item.download.status }}" data-quality="{{ item.download.quality }}">
-                            <td>
-                            <span class="badge badge-{% if item.download.status == 'completed' %}success{% elif item.download.status == 'downloading' %}info{% elif item.download.status == 'pending' %}warning{% else %}error{% endif %}">
-                                {% if item.download.status == 'downloading' %}
-                                    <span class="loading loading-spinner loading-xs mr-1"></span>
-                                {% endif %}
-                                {{ item.download.get_status_display }}
-                            </span>
-                            {% if item.download.progress %}
-                            <div class="mt-1">
-                                <progress class="progress progress-primary w-20" value="{{ item.download.progress }}" max="100"></progress>
-                                <span class="text-xs">{{ item.download.progress }}%</span>
-                            </div>
-                            {% endif %}
-                        </td>
+<!-- 다운로드 목록 (한 영상당 한 줄) -->
+<div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>채널</th>
+                        <th>제목</th>
+                        <th>고화질</th>
+                        <th>저화질</th>
+                        <th>스트림 시간</th>
+                        <th>액션</th>
+                    </tr>
+                </thead>
+                <tbody id="downloadTableBody">
+                    {% for item in stream_downloads %}
+                    <tr data-stream-id="{{ item.stream.id }}">
                         <td>
                             <div>
-                                <div class="font-bold">{{ item.download.live_stream.channel.name }}</div>
-                                <div class="text-xs opacity-50">{{ item.download.live_stream.channel.channel_id }}</div>
+                                <div class="font-bold">{{ item.channel.name }}</div>
+                                <div class="text-xs opacity-50">{{ item.channel.channel_id }}</div>
                             </div>
                         </td>
                         <td>
                             <div class="max-w-md">
-                                <p class="truncate font-medium">{{ item.download.live_stream.title }}</p>
-                                <p class="text-xs opacity-50">{{ item.download.live_stream.video_id }}</p>
+                                <p class="truncate font-medium">{{ item.stream.title }}</p>
+                                <p class="text-xs opacity-50">{{ item.stream.video_id }}</p>
                             </div>
                         </td>
+                        <!-- 고화질 컬럼 -->
                         <td>
-                            <div>
-                                {% if item.download.resolution %}
-                                    <p class="font-bold">{{ item.download.resolution }}</p>
-                                {% else %}
-                                    <p class="font-bold">미확인</p>
-                                {% endif %}
-                                {% if item.download.video_codec or item.download.audio_codec %}
-                                    <p class="text-xs opacity-50">
-                                        {% if item.download.video_codec %}V: {{ item.download.video_codec }}{% endif %}
-                                        {% if item.download.audio_codec %}A: {{ item.download.audio_codec }}{% endif %}
-                                    </p>
-                                {% endif %}
-                            </div>
-                        </td>
-                        <td>
-                            {{ item.file_size_display }}
-                        </td>
-                        <td>
-                            {% if item.download.completed_at %}
-                                <div>
-                                    <p>{{ item.download.completed_at|date:"Y-m-d" }}</p>
-                                    <p class="text-xs opacity-50">{{ item.download.completed_at|date:"H:i:s" }}</p>
+                            {% if item.high_quality %}
+                            <div class="space-y-1">
+                                <span class="badge badge-{% if item.high_quality.download.status == 'completed' %}success{% elif item.high_quality.download.status == 'downloading' %}info{% elif item.high_quality.download.status == 'pending' %}warning{% else %}error{% endif %} badge-sm">
+                                    {% if item.high_quality.download.status == 'downloading' %}
+                                        <span class="loading loading-spinner loading-xs mr-1"></span>
+                                    {% endif %}
+                                    {{ item.high_quality.status_display }}
+                                </span>
+                                {% if item.high_quality.download.progress and item.high_quality.download.status == 'downloading' %}
+                                <div class="flex items-center gap-1">
+                                    <progress class="progress progress-primary w-16 h-2" value="{{ item.high_quality.download.progress }}" max="100"></progress>
+                                    <span class="text-xs">{{ item.high_quality.download.progress }}%</span>
                                 </div>
+                                {% endif %}
+                                <div class="text-xs">
+                                    <span class="font-semibold">{{ item.high_quality.resolution }}</span>
+                                    <span class="opacity-50">• {{ item.high_quality.file_size_display }}</span>
+                                </div>
+                            </div>
                             {% else %}
-                                <p class="text-xs opacity-50">{{ item.download.created_at|timesince }} 전</p>
+                            <span class="text-xs opacity-50">-</span>
+                            {% endif %}
+                        </td>
+                        <!-- 저화질 컬럼 -->
+                        <td>
+                            {% if item.low_quality %}
+                            <div class="space-y-1">
+                                <span class="badge badge-{% if item.low_quality.download.status == 'completed' %}success{% elif item.low_quality.download.status == 'downloading' %}info{% elif item.low_quality.download.status == 'pending' %}warning{% else %}error{% endif %} badge-sm">
+                                    {% if item.low_quality.download.status == 'downloading' %}
+                                        <span class="loading loading-spinner loading-xs mr-1"></span>
+                                    {% endif %}
+                                    {{ item.low_quality.status_display }}
+                                </span>
+                                {% if item.low_quality.download.progress and item.low_quality.download.status == 'downloading' %}
+                                <div class="flex items-center gap-1">
+                                    <progress class="progress progress-secondary w-16 h-2" value="{{ item.low_quality.download.progress }}" max="100"></progress>
+                                    <span class="text-xs">{{ item.low_quality.download.progress }}%</span>
+                                </div>
+                                {% endif %}
+                                <div class="text-xs">
+                                    <span class="font-semibold">{{ item.low_quality.resolution }}</span>
+                                    <span class="opacity-50">• {{ item.low_quality.file_size_display }}</span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-xs opacity-50">-</span>
                             {% endif %}
                         </td>
                         <td>
-                            <div class="flex gap-1">
-                                {% if item.download.status == 'completed' %}
-                                <button onclick="playVideo({{ item.download.id }})" class="btn btn-xs btn-ghost">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                                <button onclick="deleteDownload({{ item.download.id }})" class="btn btn-xs btn-error">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                {% elif item.download.status == 'failed' %}
-                                <button onclick="retryDownload({{ item.download.id }})" class="btn btn-xs btn-warning">
-                                    <i class="fas fa-redo"></i>
-                                </button>
-                                <button onclick="forceDownload({{ item.download.id }})" class="btn btn-xs btn-info" title="강제 다운로드">
-                                    <i class="fas fa-bolt"></i>
-                                </button>
-                                {% if item.download.error_message %}
-                                <button onclick="showError({{ item.download.id }})" class="btn btn-xs btn-ghost">
-                                    <i class="fas fa-info-circle"></i>
+                            {% if item.stream.started_at %}
+                            <div>
+                                <p class="text-sm">{{ item.stream.started_at|date:"Y-m-d" }}</p>
+                                <p class="text-xs opacity-50">{{ item.stream.started_at|date:"H:i" }}</p>
+                            </div>
+                            {% else %}
+                            <span class="text-xs opacity-50">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="flex gap-1 flex-wrap">
+                                <!-- 고화질 액션 -->
+                                {% if item.high_quality %}
+                                    {% if item.high_quality.download.status == 'completed' %}
+                                    <button onclick="playVideo({{ item.high_quality.download.id }})" class="btn btn-xs btn-ghost" title="고화질 재생">
+                                        <i class="fas fa-play text-primary"></i>
+                                    </button>
+                                    <button onclick="deleteDownload({{ item.high_quality.download.id }})" class="btn btn-xs btn-error" title="고화질 삭제">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% elif item.high_quality.download.status == 'failed' %}
+                                    <button onclick="retryDownload({{ item.high_quality.download.id }})" class="btn btn-xs btn-warning" title="고화질 재시도">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                    {% elif item.high_quality.download.status == 'downloading' %}
+                                    <button onclick="cancelDownload({{ item.high_quality.download.id }})" class="btn btn-xs btn-error" title="고화질 취소">
+                                        <i class="fas fa-stop"></i>
+                                    </button>
+                                    {% elif item.high_quality.download.status == 'pending' %}
+                                    <button onclick="forceDownload({{ item.high_quality.download.id }})" class="btn btn-xs btn-primary" title="고화질 시작">
+                                        <i class="fas fa-play-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                <!-- 저화질 액션 -->
+                                {% if item.low_quality %}
+                                    {% if item.low_quality.download.status == 'completed' %}
+                                    <button onclick="playVideo({{ item.low_quality.download.id }})" class="btn btn-xs btn-ghost" title="저화질 재생">
+                                        <i class="fas fa-play text-secondary"></i>
+                                    </button>
+                                    <button onclick="deleteDownload({{ item.low_quality.download.id }})" class="btn btn-xs btn-error" title="저화질 삭제">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                    {% elif item.low_quality.download.status == 'failed' %}
+                                    <button onclick="retryDownload({{ item.low_quality.download.id }})" class="btn btn-xs btn-warning" title="저화질 재시도">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                    {% elif item.low_quality.download.status == 'downloading' %}
+                                    <button onclick="cancelDownload({{ item.low_quality.download.id }})" class="btn btn-xs btn-error" title="저화질 취소">
+                                        <i class="fas fa-stop"></i>
+                                    </button>
+                                    {% elif item.low_quality.download.status == 'pending' %}
+                                    <button onclick="forceDownload({{ item.low_quality.download.id }})" class="btn btn-xs btn-secondary" title="저화질 시작">
+                                        <i class="fas fa-play-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                <!-- 에러 메시지 보기 -->
+                                {% if item.high_quality and item.high_quality.download.error_message %}
+                                <button onclick="showError({{ item.high_quality.download.id }})" class="btn btn-xs btn-ghost" title="고화질 오류">
+                                    <i class="fas fa-info-circle text-error"></i>
                                 </button>
                                 {% endif %}
-                                {% elif item.download.status == 'downloading' %}
-                                <button onclick="cancelDownload({{ item.download.id }})" class="btn btn-xs btn-error">
-                                    <i class="fas fa-stop"></i>
-                                </button>
-                                {% elif item.download.status == 'pending' %}
-                                <button onclick="forceDownload({{ item.download.id }})" class="btn btn-xs btn-primary" title="강제 다운로드">
-                                    <i class="fas fa-play-circle"></i> 시작
+                                {% if item.low_quality and item.low_quality.download.error_message %}
+                                <button onclick="showError({{ item.low_quality.download.id }})" class="btn btn-xs btn-ghost" title="저화질 오류">
+                                    <i class="fas fa-info-circle text-error"></i>
                                 </button>
                                 {% endif %}
                             </div>
                         </td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if not has_high_quality %}
-                <div class="text-center py-4 opacity-50">
-                    고화질 다운로드가 없습니다
-                </div>
-                {% endif %}
-            </div>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center opacity-50">다운로드가 없습니다</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-    </div>
-    
-    <!-- 저화질 다운로드 -->
-    <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-            <h2 class="card-title text-xl mb-4">
-                <i class="fas fa-compress text-secondary"></i>
-                저화질 다운로드
-            </h2>
-            <div class="overflow-x-auto">
-                <table class="table table-zebra">
-                    <thead>
-                        <tr>
-                            <th>상태</th>
-                            <th>채널</th>
-                            <th>제목</th>
-                            <th>해상도 / 코덱</th>
-                            <th>크기</th>
-                            <th>다운로드 시간</th>
-                            <th>액션</th>
-                        </tr>
-                    </thead>
-                    <tbody id="lowQualityTableBody">
-                        {% for item in downloads %}
-                        {% if item.download.quality == 'worst' or item.download.quality == 'low' %}
-                        <tr data-status="{{ item.download.status }}" data-quality="{{ item.download.quality }}">
-                            <td>
-                                <span class="badge badge-{% if item.download.status == 'completed' %}success{% elif item.download.status == 'downloading' %}info{% elif item.download.status == 'pending' %}warning{% else %}error{% endif %}">
-                                    {% if item.download.status == 'downloading' %}
-                                        <span class="loading loading-spinner loading-xs mr-1"></span>
-                                    {% endif %}
-                                    {{ item.download.get_status_display }}
-                                </span>
-                                {% if item.download.progress %}
-                                <div class="mt-1">
-                                    <progress class="progress progress-primary w-20" value="{{ item.download.progress }}" max="100"></progress>
-                                    <span class="text-xs">{{ item.download.progress }}%</span>
-                                </div>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div>
-                                    <div class="font-bold">{{ item.download.live_stream.channel.name }}</div>
-                                    <div class="text-xs opacity-50">{{ item.download.live_stream.channel.channel_id }}</div>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="max-w-md">
-                                    <p class="truncate font-medium">{{ item.download.live_stream.title }}</p>
-                                    <p class="text-xs opacity-50">{{ item.download.live_stream.video_id }}</p>
-                                </div>
-                            </td>
-                            <td>
-                                <div>
-                                    {% if item.download.resolution %}
-                                        <p class="font-bold">{{ item.download.resolution }}</p>
-                                    {% else %}
-                                        <p class="font-bold">미확인</p>
-                                    {% endif %}
-                                    {% if item.download.video_codec or item.download.audio_codec %}
-                                        <p class="text-xs opacity-50">
-                                            {% if item.download.video_codec %}V: {{ item.download.video_codec }}{% endif %}
-                                            {% if item.download.audio_codec %}A: {{ item.download.audio_codec }}{% endif %}
-                                        </p>
-                                    {% endif %}
-                                </div>
-                            </td>
-                            <td>
-                                {{ item.file_size_display }}
-                            </td>
-                            <td>
-                                {% if item.download.completed_at %}
-                                    <div>
-                                        <p>{{ item.download.completed_at|date:"Y-m-d" }}</p>
-                                        <p class="text-xs opacity-50">{{ item.download.completed_at|date:"H:i:s" }}</p>
-                                    </div>
-                                {% else %}
-                                    <p class="text-xs opacity-50">{{ item.download.created_at|timesince }} 전</p>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="flex gap-1">
-                                    {% if item.download.status == 'completed' %}
-                                    <button onclick="playVideo({{ item.download.id }})" class="btn btn-xs btn-ghost">
-                                        <i class="fas fa-play"></i>
-                                    </button>
-                                    <button onclick="deleteDownload({{ item.download.id }})" class="btn btn-xs btn-error">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                    {% elif item.download.status == 'failed' %}
-                                    <button onclick="retryDownload({{ item.download.id }})" class="btn btn-xs btn-warning">
-                                        <i class="fas fa-redo"></i>
-                                    </button>
-                                    <button onclick="forceDownload({{ item.download.id }})" class="btn btn-xs btn-info" title="강제 다운로드">
-                                        <i class="fas fa-bolt"></i>
-                                    </button>
-                                    {% if item.download.error_message %}
-                                    <button onclick="showError({{ item.download.id }})" class="btn btn-xs btn-ghost">
-                                        <i class="fas fa-info-circle"></i>
-                                    </button>
-                                    {% endif %}
-                                    {% elif item.download.status == 'downloading' %}
-                                    <button onclick="cancelDownload({{ item.download.id }})" class="btn btn-xs btn-error">
-                                        <i class="fas fa-stop"></i>
-                                    </button>
-                                    {% elif item.download.status == 'pending' %}
-                                    <button onclick="forceDownload({{ item.download.id }})" class="btn btn-xs btn-primary" title="강제 다운로드">
-                                        <i class="fas fa-play-circle"></i> 시작
-                                    </button>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if not has_low_quality %}
-                <div class="text-center py-4 opacity-50">
-                    저화질 다운로드가 없습니다
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
         
         <!-- 페이지네이션 -->
         {% if page_obj %}
@@ -353,46 +260,41 @@
 <script>
 // 에러 메시지를 전역 변수로 저장
 window.errorMessages = {};
-{% for download in downloads %}
-    {% if download.error_message %}
-    window.errorMessages[{{ download.id }}] = "{{ download.error_message|escapejs }}";
+{% for item in stream_downloads %}
+    {% if item.high_quality and item.high_quality.download.error_message %}
+    window.errorMessages[{{ item.high_quality.download.id }}] = "{{ item.high_quality.download.error_message|escapejs }}";
+    {% endif %}
+    {% if item.low_quality and item.low_quality.download.error_message %}
+    window.errorMessages[{{ item.low_quality.download.id }}] = "{{ item.low_quality.download.error_message|escapejs }}";
     {% endif %}
 {% endfor %}
 
-// 필터링
-document.getElementById('statusFilter').addEventListener('change', filterDownloads);
-document.getElementById('qualityFilter').addEventListener('change', filterDownloads);
-
-function filterDownloads() {
-    const statusFilter = document.getElementById('statusFilter').value;
-    const qualityFilter = document.getElementById('qualityFilter').value;
+// 필터링 (간단하게)
+document.getElementById('statusFilter').addEventListener('change', function() {
+    const filter = this.value;
+    const rows = document.querySelectorAll('#downloadTableBody tr');
     
-    // 고화질 테이블 필터링
-    const highRows = document.querySelectorAll('#highQualityTableBody tr');
-    highRows.forEach(row => {
-        const status = row.dataset.status;
-        const quality = row.dataset.quality;
+    rows.forEach(row => {
+        if (!filter) {
+            row.style.display = '';
+            return;
+        }
         
-        let show = true;
-        if (statusFilter && status !== statusFilter) show = false;
-        if (qualityFilter && qualityFilter !== 'best' && qualityFilter !== quality) show = false;
+        // 해당 행의 모든 상태 배지 확인
+        const badges = row.querySelectorAll('.badge');
+        let hasStatus = false;
         
-        row.style.display = show ? '' : 'none';
+        badges.forEach(badge => {
+            const text = badge.textContent.trim().toLowerCase();
+            if (filter === 'pending' && text.includes('대기')) hasStatus = true;
+            if (filter === 'downloading' && text.includes('다운로드')) hasStatus = true;
+            if (filter === 'completed' && text.includes('완료')) hasStatus = true;
+            if (filter === 'failed' && text.includes('실패')) hasStatus = true;
+        });
+        
+        row.style.display = hasStatus ? '' : 'none';
     });
-    
-    // 저화질 테이블 필터링
-    const lowRows = document.querySelectorAll('#lowQualityTableBody tr');
-    lowRows.forEach(row => {
-        const status = row.dataset.status;
-        const quality = row.dataset.quality;
-        
-        let show = true;
-        if (statusFilter && status !== statusFilter) show = false;
-        if (qualityFilter && qualityFilter !== 'worst' && qualityFilter !== quality) show = false;
-        
-        row.style.display = show ? '' : 'none';
-    });
-}
+});
 
 // 모든 다운로드 관련 함수들은 app.js에 정의되어 있음
 

@@ -241,12 +241,14 @@ async function confirmDelete() {
     if (!deleteDownloadId) return;
     
     try {
+        // DELETE 메서드 사용 (Django REST Framework @action이 DELETE로 정의됨)
         const response = await window.app.apiRequest('DELETE', `/downloads/${deleteDownloadId}/delete_file/`);
         showToast('success', '다운로드가 삭제되었습니다.');
         closeDeleteModal();
         setTimeout(() => location.reload(), 1000);
     } catch (error) {
-        showToast('error', '삭제 실패');
+        showToast('error', '삭제 실패: ' + error.message);
+        console.error('Delete error:', error);
     }
 }
 

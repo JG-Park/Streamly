@@ -12,6 +12,7 @@ import sys
 import django
 import yt_dlp
 import shutil
+import os
 
 from channels.models import Channel, LiveStream
 from core.models import SystemLog, Settings
@@ -194,31 +195,54 @@ def downloads_page(request):
     )['total'] or 0
     stats['total_size'] = format_file_size(total_size)
     
-    # 파일 크기 표시를 위한 리스트 생성
-    downloads_with_size = []
-    has_high_quality = False
-    has_low_quality = False
-    
-    for download in page_obj.object_list:
-        download_data = {
-            'download': download,
-            'file_size_display': format_file_size(download.file_size) if download.file_size else '-'
-        }
-        downloads_with_size.append(download_data)
+    # 영상별로 그룹화
+    stream_downloads = {}
+    for download in downloads:
+        stream_id = download.live_stream_id
+        if stream_id not in stream_downloads:
+            stream_downloads[stream_id] = {
+                'stream': download.live_stream,
+                'channel': download.live_stream.channel,
+                'high_quality': None,
+                'low_quality': None
+            }
         
-        # 품질별 존재 여부 체크
+        # 100% 완료인데 다운로드 중인 경우 자동 수정
+        if download.progress == 100 and download.status == 'downloading':
+            if download.file_path and os.path.exists(download.file_path):
+                download.status = 'completed'
+                download.save(update_fields=['status'])
+        
+        # 품질별로 분류
+        download_info = {
+            'download': download,
+            'file_size_display': format_file_size(download.file_size) if download.file_size else '-',
+            'status_display': download.get_status_display(),
+            'resolution': download.resolution or '미확인'
+        }
+        
         if download.quality in ['best', 'high']:
-            has_high_quality = True
-        elif download.quality in ['worst', 'low']:
-            has_low_quality = True
+            stream_downloads[stream_id]['high_quality'] = download_info
+        else:  # worst, low
+            stream_downloads[stream_id]['low_quality'] = download_info
+    
+    # 페이지네이션을 위해 리스트로 변환 (최신순)
+    stream_downloads_list = sorted(
+        stream_downloads.values(), 
+        key=lambda x: x['stream'].started_at or x['stream'].created_at,
+        reverse=True
+    )
+    
+    # 페이지네이션
+    from django.core.paginator import Paginator
+    paginator = Paginator(stream_downloads_list, 20)
+    page_obj = paginator.get_page(page_number)
     
     context = {
-        'downloads': downloads_with_size,
+        'stream_downloads': page_obj.object_list,
         'page_obj': page_obj,
         'stats': stats,
         'downloading_count': stats['downloading'],
-        'has_high_quality': has_high_quality,
-        'has_low_quality': has_low_quality,
         'page_title': '다운로드 관리',
     }
     
