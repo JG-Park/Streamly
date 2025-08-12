@@ -166,6 +166,8 @@ def downloads_page(request):
     if Download is None:
         from downloads.models import Download
     
+    from django.core.paginator import Paginator
+    
     downloads = Download.objects.select_related('live_stream__channel')
     downloads = downloads.order_by('-created_at')
     
@@ -322,6 +324,16 @@ def logs_page(request):
     }
     
     return render(request, 'dashboard/logs.html', context)
+
+
+@login_required
+def manual_download_page(request):
+    """수동 YouTube 다운로드 페이지"""
+    context = {
+        'page_title': 'YouTube 다운로드',
+    }
+    
+    return render(request, 'dashboard/manual_download.html', context)
 
 
 @login_required
