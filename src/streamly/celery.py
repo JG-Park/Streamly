@@ -29,7 +29,7 @@ app.conf.beat_schedule = {
     },
     'process-pending-downloads': {
         'task': 'core.tasks.process_pending_downloads',
-        'schedule': 300.0,  # 5분마다 실행 (대기 중 다운로드 처리)
+        'schedule': 30.0,  # 30초마다 실행 (대기 중 다운로드 처리)
     },
     'check-stuck-downloads': {
         'task': 'core.tasks.check_stuck_downloads',
